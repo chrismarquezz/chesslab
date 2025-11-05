@@ -29,7 +29,7 @@ export default function RatingTrendChart({
   return (
     <div className="bg-white shadow-md rounded-xl p-6">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-semibold text-gray-800">
+        <h3 className="text-2xl font-semibold text-gray-800">
           Rating Trend ({selectedTrendMode})
         </h3>
 

@@ -1,25 +1,28 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import App from "./App.tsx";
-import Layout from "./components/Layout.tsx";
-import GamesPage from "./pages/GamesPage.tsx";
-import ComparePage from "./pages/ComparePage.tsx";
+import { UserProvider } from "./context/UserContext";
+
+import App from "./App"; // Dashboard page
+import GamesPage from "./pages/GamesPage"; // Games page
+import ComparePage from "./pages/ComparePage"; // Compare page (future)
 import "./index.css";
 
+// ✅ Define routes
 const router = createBrowserRouter([
-  {
-    element: <Layout />,
-    children: [
-      { path: "/", element: <App /> },
-      { path: "/games", element: <GamesPage /> },
-      { path: "/compare", element: <ComparePage /> },
-    ],
-  },
+  { path: "/", element: <App /> },
+  { path: "/games", element: <GamesPage /> },
+  { path: "/compare", element: <ComparePage /> },
 ]);
 
-createRoot(document.getElementById("root")!).render(
+// ✅ Mount app
+const rootElement = document.getElementById("root");
+if (!rootElement) throw new Error("Root element not found");
+
+createRoot(rootElement).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <UserProvider>
+      <RouterProvider router={router} />
+    </UserProvider>
   </StrictMode>
 );

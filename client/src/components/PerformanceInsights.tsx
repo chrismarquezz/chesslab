@@ -1,5 +1,3 @@
-import React from "react";
-
 interface PerformanceInsightsProps {
   avgRating: number | null;
   bestMode: string | null;

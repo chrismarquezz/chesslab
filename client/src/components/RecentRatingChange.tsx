@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-type RecentRatingChangeProps = {
+interface RecentRatingChangeProps {
   username: string;
-};
+}
 
 type Mode = "blitz" | "rapid" | "bullet";
 
@@ -12,6 +12,8 @@ export default function RecentRatingChange({ username }: RecentRatingChangeProps
   const [loading, setLoading] = useState(false);
 
   const fetchRecentRatings = async () => {
+    if (!username.trim()) return; // ✅ Prevent fetch if username is empty
+
     setLoading(true);
     try {
       const now = new Date();
@@ -57,16 +59,18 @@ export default function RecentRatingChange({ username }: RecentRatingChangeProps
           (g: any) => new Date(g.end_time * 1000) >= oneWeekAgo
         );
 
+        const usernameLower = username.toLowerCase();
+
         modeRatings[mode] = {
           now:
-            latest?.white?.username?.toLowerCase() === username.toLowerCase()
+            latest?.white?.username?.toLowerCase() === usernameLower
               ? latest.white.rating
               : latest.black.rating,
           weekAgo: weekAgoGame
-            ? weekAgoGame.white.username.toLowerCase() === username.toLowerCase()
+            ? weekAgoGame.white.username.toLowerCase() === usernameLower
               ? weekAgoGame.white.rating
               : weekAgoGame.black.rating
-            : modeGames[0].white.username.toLowerCase() === username.toLowerCase()
+            : modeGames[0].white.username.toLowerCase() === usernameLower
               ? modeGames[0].white.rating
               : modeGames[0].black.rating,
         };
@@ -88,7 +92,7 @@ export default function RecentRatingChange({ username }: RecentRatingChangeProps
   };
 
   useEffect(() => {
-    if (username) fetchRecentRatings();
+    fetchRecentRatings();
   }, [username]);
 
   const modes: Mode[] = ["blitz", "rapid", "bullet"];
@@ -99,7 +103,9 @@ export default function RecentRatingChange({ username }: RecentRatingChangeProps
         Recent Rating Change
       </h3>
 
-      {loading ? (
+      {!username ? (
+        <p className="text-gray-500 italic">Enter a username to view rating changes.</p>
+      ) : loading ? (
         <p className="text-gray-500 animate-pulse">Loading...</p>
       ) : (
         <div className="space-y-3">

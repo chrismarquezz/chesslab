@@ -1,4 +1,3 @@
-import React from "react";
 import {
   PieChart,
   Pie,
@@ -34,8 +33,8 @@ export default function WinLossPieChart({
   return (
     <section className="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold text-[#00bfa6]">
-          🥧 Win/Loss/Draw Ratio
+        <h2 className="text-2xl font-semibold">
+          Win/Loss/Draw Ratio
         </h2>
         <select
           value={selectedMode}

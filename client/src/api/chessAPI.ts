@@ -15,18 +15,22 @@ export async function getStats(username: string) {
 }
 
 export async function getRecentGames(username: string) {
-  // Step 1: fetch archives list (each archive = one month of games)
-  const { data: archives } = await axios.get(
-    `https://api.chess.com/pub/player/${encodeURIComponent(username)}/games/archives`
-  );
+  try {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
 
-  // Step 2: get the most recent archive URL (last item in the array)
-  const latestArchive = archives.archives[archives.archives.length - 1];
+    const url = `https://api.chess.com/pub/player/${username}/games/${year}/${month}`;
+    const { data } = await axios.get(url);
 
-  // Step 3: fetch that archive’s games
-  const { data } = await axios.get(latestArchive);
-  return data.games.slice(-5).reverse(); // get 5 most recent games
+    // Return only the most recent 20 games
+    return data.games.slice(-20).reverse();
+  } catch (error) {
+    console.error("Error fetching recent games:", error);
+    return [];
+  }
 }
+
 
 export async function getRatingHistory(username: string, mode: "blitz" | "rapid" | "bullet" = "blitz") {
   try {
