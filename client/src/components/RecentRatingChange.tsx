@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { useUser } from "../context/UserContext";
 
 type Mode = "blitz" | "rapid" | "bullet";
 
@@ -8,82 +8,56 @@ interface RecentRatingChangeProps {
 }
 
 export default function RecentRatingChange({ username }: RecentRatingChangeProps) {
+  const { games, gamesLoading } = useUser();
   const [deltas, setDeltas] = useState<{ [K in Mode]?: number }>({});
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!username) return;
+    if (!username) {
+      setDeltas({});
+      return;
+    }
+    if (!games.length) {
+      setDeltas({});
+      return;
+    }
 
-    const fetchRecentRatings = async () => {
-      setLoading(true);
-      try {
-        const now = new Date();
-        const thisMonth = now.toISOString().slice(0, 7).split("-");
-        const prevMonthDate = new Date(now);
-        prevMonthDate.setMonth(now.getMonth() - 1);
-        const prevMonth = prevMonthDate.toISOString().slice(0, 7).split("-");
+    const sorted = [...games].sort((a, b) => (a.end_time ?? 0) - (b.end_time ?? 0));
 
-        const urls = [
-          `https://api.chess.com/pub/player/${username}/games/${thisMonth[0]}/${thisMonth[1]}`,
-          `https://api.chess.com/pub/player/${username}/games/${prevMonth[0]}/${prevMonth[1]}`,
-        ];
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-        const [thisMonthData, prevMonthData] = await Promise.all(
-          urls.map((url) =>
-            axios.get(url).then((res) => res.data).catch(() => ({ games: [] }))
-          )
-        );
-
-        const allGames = [...(prevMonthData.games || []), ...(thisMonthData.games || [])];
-        if (!allGames.length) return;
-
-        const sorted = allGames.sort(
-          (a: any, b: any) => a.end_time - b.end_time
-        );
-
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-        const modeRatings: Record<Mode, { now: number; weekAgo: number }> = {
-          blitz: { now: 0, weekAgo: 0 },
-          rapid: { now: 0, weekAgo: 0 },
-          bullet: { now: 0, weekAgo: 0 },
-        };
-
-        for (const mode of ["blitz", "rapid", "bullet"] as const) {
-          const modeGames = sorted.filter((g) => g.time_class === mode);
-          if (!modeGames.length) continue;
-
-          const latest = modeGames[modeGames.length - 1];
-          const weekAgoGame = modeGames.find(
-            (g) => new Date(g.end_time * 1000) >= oneWeekAgo
-          );
-
-          const getRating = (g: any) =>
-            g.white.username.toLowerCase() === username.toLowerCase()
-              ? g.white.rating
-              : g.black.rating;
-
-          modeRatings[mode] = {
-            now: getRating(latest),
-            weekAgo: weekAgoGame ? getRating(weekAgoGame) : getRating(modeGames[0]),
-          };
-        }
-
-        const deltaObj = Object.fromEntries(
-          Object.entries(modeRatings).map(([k, v]) => [k, v.now - v.weekAgo])
-        ) as { [K in Mode]: number };
-
-        setDeltas(deltaObj);
-      } catch (err) {
-        console.error("Failed to fetch recent rating change:", err);
-      } finally {
-        setLoading(false);
-      }
+    const modeRatings: Record<Mode, { now: number; weekAgo: number }> = {
+      blitz: { now: 0, weekAgo: 0 },
+      rapid: { now: 0, weekAgo: 0 },
+      bullet: { now: 0, weekAgo: 0 },
     };
 
-    fetchRecentRatings();
-  }, [username]);
+    for (const mode of ["blitz", "rapid", "bullet"] as const) {
+      const modeGames = sorted.filter((g) => g.time_class === mode);
+      if (!modeGames.length) continue;
+
+      const latest = modeGames[modeGames.length - 1];
+      const weekAgoGame = modeGames.find(
+        (g) => new Date((g.end_time ?? 0) * 1000) >= oneWeekAgo
+      );
+
+      const getRating = (g: any) =>
+        g.white.username.toLowerCase() === username.toLowerCase()
+          ? g.white.rating
+          : g.black.rating;
+
+      modeRatings[mode] = {
+        now: getRating(latest),
+        weekAgo: weekAgoGame ? getRating(weekAgoGame) : getRating(modeGames[0]),
+      };
+    }
+
+    const deltaObj = Object.fromEntries(
+      Object.entries(modeRatings).map(([k, v]) => [k, v.now - v.weekAgo])
+    ) as { [K in Mode]: number };
+
+    setDeltas(deltaObj);
+  }, [games, username]);
 
   const modes: Mode[] = ["blitz", "rapid", "bullet"];
 
@@ -93,7 +67,7 @@ export default function RecentRatingChange({ username }: RecentRatingChangeProps
         Recent Rating Change
       </h3>
 
-      {loading ? (
+      {gamesLoading ? (
         <p className="text-gray-500 animate-pulse">Loading...</p>
       ) : (
         <div className="space-y-3">

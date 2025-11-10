@@ -11,25 +11,25 @@ export default function Ratings({ stats }: RatingsOverviewProps) {
       <ul className="space-y-2 text-lg">
         <li>
           Rapid:{" "}
-          <span className="font-mono font-semibold text-[#00bfa6]">
+          <span className="font-semibold text-[#00bfa6]">
             {stats.chess_rapid?.last?.rating ?? "N/A"}
           </span>
         </li>
         <li>
           Blitz:{" "}
-          <span className="font-mono font-semibold text-[#00bfa6]">
+          <span className="font-semibold text-[#00bfa6]">
             {stats.chess_blitz?.last?.rating ?? "N/A"}
           </span>
         </li>
         <li>
           Bullet:{" "}
-          <span className="font-mono font-semibold text-[#00bfa6]">
+          <span className="font-semibold text-[#00bfa6]">
             {stats.chess_bullet?.last?.rating ?? "N/A"}
           </span>
         </li>
         <li>
           Puzzles:{" "}
-          <span className="font-mono font-semibold text-[#00bfa6]">
+          <span className="font-semibold text-[#00bfa6]">
             {stats.tactics?.highest?.rating ?? "N/A"}
           </span>
         </li>

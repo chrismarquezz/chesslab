@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useUser } from "../context/UserContext";
 import Navbar from "../components/Navbar";
-import { getRecentGames } from "../api/chessAPI";
 import GameStatsSummary from "../components/GameStatsSummary";
 import GamesFilterBar from "../components/GamesFilterBar";
 import RecentGamesTable from "../components/RecentGamesTable";
@@ -10,34 +9,9 @@ import PerformanceByColorChart from "../components/PerformanceByColorChart";
 import PerformanceByTimeChart from "../components/PerformanceByTimeChart";
 
 export default function GamesPage() {
-  const { username } = useUser();
-  const [games, setGames] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { username, games, gamesLoading, gamesError, refreshGames } = useUser();
   const [selectedMode, setSelectedMode] = useState("all");
   const [selectedResult, setSelectedResult] = useState("all");
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  // --- Fetch games ---
-  const fetchGames = async () => {
-    if (!username) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getRecentGames(username);
-      const sorted = [...data].sort((a, b) => (b.end_time ?? 0) - (a.end_time ?? 0));
-      setGames(sorted);
-      setLastUpdated(new Date());
-    } catch {
-      setError("Could not load recent games.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchGames();
-  }, [username]);
 
   // --- Apply filters for display ---
   const filteredGames = games.filter((g) => {
@@ -92,7 +66,7 @@ export default function GamesPage() {
               setSelectedMode={setSelectedMode}
               selectedResult={selectedResult}
               setSelectedResult={setSelectedResult}
-              onRefresh={fetchGames}
+              onRefresh={refreshGames}
             />
           </div>
 
@@ -110,10 +84,10 @@ export default function GamesPage() {
 </div>
 
           {/* Table */}
-          {loading ? (
+          {gamesLoading ? (
             <p className="text-gray-500 animate-pulse mt-6">Loading games...</p>
-          ) : error ? (
-            <p className="text-red-500 mt-6">{error}</p>
+          ) : gamesError ? (
+            <p className="text-red-500 mt-6">{gamesError}</p>
           ) : (
             <RecentGamesTable games={filteredGames} username={username} />
           )}

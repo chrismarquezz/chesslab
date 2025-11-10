@@ -8,57 +8,19 @@ import WinLossPieChart from "./components/WinLossPieChart";
 import RatingTrendChart from "./components/RatingTrendChart";
 import HighlightsSection from "./components/HighlightsSection";
 import BestRatings from "./components/BestRatings";
-import { getProfile, getStats, getRatingHistory } from "./api/chessAPI";
-
-type RatingPoint = { month: string; rating: number };
 
 export default function App() {
-  const { username, setUsername } = useUser();
-
-  const [profile, setProfile] = useState<any | null>(null);
-  const [stats, setStats] = useState<any | null>(null);
-  const [trendHistory, setTrendHistory] = useState<{
-    blitz: RatingPoint[];
-    rapid: RatingPoint[];
-    bullet: RatingPoint[];
-  }>({ blitz: [], rapid: [], bullet: [] });
+  const {
+    username,
+    setUsername,
+    profile,
+    stats,
+    trendHistory,
+    userDataLoading,
+    userDataError,
+    fetchUserData,
+  } = useUser();
   const [selectedMode, setSelectedMode] = useState<"all" | "blitz" | "rapid" | "bullet">("blitz");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [games] = useState<any[]>([]);
-
-  // === Fetch all profile + stats + rating histories ===
-async function handleFetchAll() {
-  if (!username.trim()) return;
-  setLoading(true);
-  setError(null);
-
-  try {
-    // Fetch profile, stats, and rating histories in parallel
-    const [profileData, statsData, blitzHistory, rapidHistory, bulletHistory] = await Promise.all([
-      getProfile(username),
-      getStats(username),
-      getRatingHistory(username, "blitz"),
-      getRatingHistory(username, "rapid"),
-      getRatingHistory(username, "bullet"),
-    ]);
-
-    // Update state
-    setProfile(profileData);
-    setStats(statsData);
-    setTrendHistory({
-      blitz: blitzHistory,
-      rapid: rapidHistory,
-      bullet: bulletHistory,
-    });
-  } catch (err) {
-    console.error("Error fetching player data:", err);
-    setError("Could not fetch data. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-}
-
 
   const bestMode = stats
     ? Object.entries({
@@ -84,10 +46,10 @@ async function handleFetchAll() {
       <PlayerInput
         username={username}
         setUsername={setUsername}
-        onFetch={handleFetchAll}
-        loading={loading}
+        onFetch={() => fetchUserData()}
+        loading={userDataLoading}
       />
-      {error && <p className="text-red-600 mt-3">{error}</p>}
+      {userDataError && <p className="text-red-600 mt-3">{userDataError}</p>}
 
       {profile && (
         <div className="mt-10 bg-white shadow-md rounded-xl p-6 w-full max-w-3xl flex flex-col items-center text-center">
@@ -205,7 +167,7 @@ async function handleFetchAll() {
           </div>
 
           {/* === Highlights Section === */}
-          <HighlightsSection username={username} games={games} />
+          <HighlightsSection username={username} selectedMode={selectedMode} />
         </section>
       )}
     </div>
