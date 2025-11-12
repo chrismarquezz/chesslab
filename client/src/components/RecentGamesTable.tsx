@@ -1,12 +1,17 @@
+import { useMemo } from "react";
 import { getUserOutcome } from "../utils/result";
+import { computeRatingDeltas } from "../utils/ratingDelta";
 
 interface RecentGamesTableProps {
   games: any[];
+  allGames: any[];
   username: string; // add this so we can compute perspective correctly
 }
 
-export default function RecentGamesTable({ games, username }: RecentGamesTableProps) {
+export default function RecentGamesTable({ games, allGames, username }: RecentGamesTableProps) {
   if (!games?.length) return null;
+
+  const ratingDeltas = useMemo(() => computeRatingDeltas(allGames, username), [allGames, username]);
 
   return (
     <section className="bg-white shadow-md hover:shadow-lg transition-shadow duration-300 rounded-2xl p-6 border border-gray-200 w-full overflow-x-auto">
@@ -38,10 +43,9 @@ export default function RecentGamesTable({ games, username }: RecentGamesTablePr
 
             const date = new Date(game.end_time * 1000).toLocaleDateString();
 
-            // If you have rating_before/after, compute delta; otherwise show dash for draw
-            const before = me.rating_before ?? me.rating;
-            const after = me.rating_after ?? me.rating;
-            const delta = (typeof after === "number" && typeof before === "number") ? after - before : 0;
+            const deltaRaw = ratingDeltas.get(game);
+            const delta =
+              typeof deltaRaw === "number" ? Math.round(deltaRaw) : null;
 
             return (
               <tr key={index} className="border-b last:border-none hover:bg-gray-50 transition-colors">
@@ -59,7 +63,7 @@ export default function RecentGamesTable({ games, username }: RecentGamesTablePr
                 <td className="py-2 capitalize">{game.time_class}</td>
                 <td className="py-2">{date}</td>
                 <td className={`py-2 text-right font-mono ${color}`}>
-                  {outcome === "draw" ? "—" : delta > 0 ? `+${delta}` : `${delta}`}
+                  {delta === null ? "—" : delta > 0 ? `+${delta}` : `${delta}`}
                 </td>
               </tr>
             );

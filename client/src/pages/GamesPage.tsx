@@ -6,11 +6,11 @@ import GamesFilterBar from "../components/GamesFilterBar";
 import RecentGamesTable from "../components/RecentGamesTable";
 import { getUserOutcome } from "../utils/result";
 import PerformanceByColorChart from "../components/PerformanceByColorChart";
-import PerformanceByTimeChart from "../components/PerformanceByTimeChart";
+import UpsetPotential from "../components/UpsetPotential";
 
 export default function GamesPage() {
   const { username, games, gamesLoading, gamesError, refreshGames } = useUser();
-  const [selectedMode, setSelectedMode] = useState("all");
+  const [selectedMode, setSelectedMode] = useState<"all" | "blitz" | "rapid" | "bullet">("all");
   const [selectedResult, setSelectedResult] = useState("all");
 
   // --- Apply filters for display ---
@@ -79,9 +79,9 @@ export default function GamesPage() {
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-  <PerformanceByColorChart games={filteredGames} username={username} />
-  <PerformanceByTimeChart games={filteredGames} username={username} />
-</div>
+            <PerformanceByColorChart games={filteredGames} username={username} />
+            <UpsetPotential username={username} selectedMode={selectedMode} games={games} gamesLoading={gamesLoading} />
+          </div>
 
           {/* Table */}
           {gamesLoading ? (
@@ -89,7 +89,7 @@ export default function GamesPage() {
           ) : gamesError ? (
             <p className="text-red-500 mt-6">{gamesError}</p>
           ) : (
-            <RecentGamesTable games={filteredGames} username={username} />
+            <RecentGamesTable games={filteredGames} allGames={games} username={username} />
           )}
         </div>
       </div>

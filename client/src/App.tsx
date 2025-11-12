@@ -134,8 +134,8 @@ export default function App() {
 
           {/* === Analytics Section === */}
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold text-gray-800 border-b border-gray-200 pb-2">
+            <div className="flex justify-between items-center border-b border-gray-200 pb-2 mb-6">
+              <h2 className="text-3xl font-bold text-gray-800">
                 Analytics
               </h2>
 
@@ -167,7 +167,12 @@ export default function App() {
           </div>
 
           {/* === Highlights Section === */}
-          <HighlightsSection username={username} selectedMode={selectedMode} />
+          <div>
+            <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b border-gray-200 pb-2">
+              Highlights
+            </h2>
+            <HighlightsSection username={username} selectedMode={selectedMode} />
+          </div>
         </section>
       )}
     </div>
