@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useUser } from "../context/UserContext";
 import Navbar from "../components/Navbar";
 import GameStatsSummary from "../components/GameStatsSummary";
-import GamesFilterBar from "../components/GamesFilterBar";
+import GamesFilterBar, { type ModeOption, type ResultOption } from "../components/GamesFilterBar";
 import RecentGamesTable from "../components/RecentGamesTable";
 import { getUserOutcome } from "../utils/result";
 import PerformanceByColorChart from "../components/PerformanceByColorChart";
@@ -10,8 +10,8 @@ import UpsetPotential from "../components/UpsetPotential";
 
 export default function GamesPage() {
   const { username, games, gamesLoading, gamesError, refreshGames } = useUser();
-  const [selectedMode, setSelectedMode] = useState<"all" | "blitz" | "rapid" | "bullet">("all");
-  const [selectedResult, setSelectedResult] = useState("all");
+  const [selectedMode, setSelectedMode] = useState<ModeOption>("all");
+  const [selectedResult, setSelectedResult] = useState<ResultOption>("all");
 
   // --- Apply filters for display ---
   const filteredGames = games.filter((g) => {

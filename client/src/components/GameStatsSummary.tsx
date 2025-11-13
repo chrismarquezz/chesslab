@@ -1,5 +1,3 @@
-import React from "react";
-
 interface GameStatsSummaryProps {
   totalGames: number;
   winRate: string;
@@ -25,7 +23,7 @@ export default function GameStatsSummary({
       {cards.map((c) => (
         <div
           key={c.title}
-          className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 text-center border border-gray-100"
+          className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 p-5 text-center border border-gray-100"
         >
           <h4 className="text-sm text-gray-500 font-medium mb-1">{c.title}</h4>
           <p

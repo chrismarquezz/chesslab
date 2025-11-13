@@ -62,7 +62,7 @@ export default function UpsetPotential({
   const isLoading = gamesLoading && !disabled;
 
   return (
-    <div className="bg-white shadow-md hover:shadow-lg transition-shadow duration-300 rounded-2xl p-6 border border-gray-200 text-center">
+    <div className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 rounded-2xl p-6 border border-gray-200 text-center">
       <h3 className="text-2xl font-semibold text-gray-800 pb-2 border-b border-gray-200 mb-4">
         Upset Potential
       </h3>
@@ -72,12 +72,12 @@ export default function UpsetPotential({
       ) : isLoading ? (
         <p className="text-gray-500 animate-pulse">Crunching the numbers...</p>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {segments.map(({ key, label, highlight }) => {
             const bucket = bucketStats[key];
             if (!bucket.total) {
               return (
-                <div key={key} className="text-gray-500">
+                <div key={key} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-4 text-gray-500">
                   Not enough rated games {label}.
                 </div>
               );
@@ -93,8 +93,11 @@ export default function UpsetPotential({
                 : `avg ${Math.round(avgDiff)} ELO`;
 
             return (
-              <div key={key}>
-                <p className="text-sm uppercase tracking-wide text-gray-500">{label}</p>
+              <div
+                key={key}
+                className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-4 flex flex-col gap-1"
+              >
+                <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
                 <p className={`text-3xl font-bold ${highlight}`}>{winRate.toFixed(0)}%</p>
                 <p className="text-gray-600 text-sm">{diffLabel}</p>
                 <p className="text-xs text-gray-400 mt-1">

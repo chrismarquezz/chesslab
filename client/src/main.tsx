@@ -6,6 +6,7 @@ import { UserProvider } from "./context/UserContext";
 import App from "./App"; // Dashboard page
 import GamesPage from "./pages/GamesPage"; // Games page
 import ComparePage from "./pages/ComparePage"; // Compare page (future)
+import ReviewPage from "./pages/ReviewPage"; // Game review page
 import "./index.css";
 
 // ✅ Define routes
@@ -13,6 +14,7 @@ const router = createBrowserRouter([
   { path: "/", element: <App /> },
   { path: "/games", element: <GamesPage /> },
   { path: "/compare", element: <ComparePage /> },
+  { path: "/review", element: <ReviewPage /> },
 ]);
 
 // ✅ Mount app

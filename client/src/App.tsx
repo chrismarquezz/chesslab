@@ -50,7 +50,7 @@ export default function App() {
 
       <header className="text-center mb-10">
         <h1 className="text-5xl font-extrabold text-[#00bfa6] mb-2">
-          ♟️ Chesslytics Dashboard
+          Chesslytics Dashboard
         </h1>
         <p className="text-gray-500 text-lg">
           Analyze your performance and track your chess journey
@@ -90,7 +90,7 @@ export default function App() {
 
             {/* --- Summary row --- */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 text-center">
-              <div className="bg-white shadow-sm rounded-xl p-5">
+              <div className="bg-white shadow-lg rounded-xl p-5 border border-gray-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
                 <h4 className="text-sm text-gray-500 font-medium mb-1">Total Games</h4>
                 <p className="text-2xl font-bold text-gray-800">
                   {(stats.chess_blitz?.record?.win ?? 0) +
@@ -105,7 +105,7 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="bg-white shadow-sm rounded-xl p-5">
+              <div className="bg-white shadow-lg rounded-xl p-5 border border-gray-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
                 <h4 className="text-sm text-gray-500 font-medium mb-1">Overall Win Rate</h4>
                 <p className="text-2xl font-bold text-[#00bfa6]">
                   {(() => {
@@ -130,7 +130,7 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="bg-white shadow-sm rounded-xl p-5">
+              <div className="bg-white shadow-lg rounded-xl p-5 border border-gray-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
                 <h4 className="text-sm text-gray-500 font-medium mb-1">Best Format</h4>
                 <p className="text-2xl font-bold text-gray-800">
                   {bestMode ?? "—"}
@@ -159,10 +159,10 @@ export default function App() {
                   <button
                     key={mode}
                     onClick={() => setSelectedMode(mode as "all" | "bullet" | "blitz" | "rapid")}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-3 py-1 rounded-md text-sm font-medium ${
                       selectedMode === mode
                         ? "bg-[#00bfa6] text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-100 text-gray-700"
                     }`}
                   >
                     {mode.charAt(0).toUpperCase() + mode.slice(1)}

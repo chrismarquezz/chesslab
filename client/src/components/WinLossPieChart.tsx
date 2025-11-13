@@ -32,7 +32,7 @@ export default function WinLossPieChart({ stats, selectedMode }: WinLossPieChart
     totalGames ? ((val / totalGames) * 100).toFixed(1) + "%" : "0%";
 
   return (
-    <section className="bg-white shadow-md rounded-2xl p-6 border border-gray-200">
+    <section className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 rounded-2xl p-6 border border-gray-200">
       <h3 className="text-2xl font-semibold text-gray-800 pb-2 border-b border-gray-200 mb-4">
         Win / Loss Distribution
       </h3>
@@ -40,8 +40,8 @@ export default function WinLossPieChart({ stats, selectedMode }: WinLossPieChart
       {totalGames === 0 ? (
         <p className="text-gray-500 text-center mt-10">No data available</p>
       ) : (
-        <div className="flex flex-col items-center">
-          <div className="w-full h-80">
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-6 h-[360px]">
+          <div className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 12, right: 36, bottom: 12, left: 36 }}>
                 <Pie

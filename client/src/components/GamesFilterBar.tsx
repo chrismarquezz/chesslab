@@ -1,8 +1,13 @@
+import type { Dispatch, SetStateAction } from "react";
+
+export type ModeOption = "all" | "blitz" | "rapid" | "bullet";
+export type ResultOption = "all" | "win" | "loss" | "draw";
+
 interface GamesFilterBarProps {
-  selectedMode: string;
-  setSelectedMode: (mode: string) => void;
-  selectedResult: string;
-  setSelectedResult: (result: string) => void;
+  selectedMode: ModeOption;
+  setSelectedMode: Dispatch<SetStateAction<ModeOption>>;
+  selectedResult: ResultOption;
+  setSelectedResult: Dispatch<SetStateAction<ResultOption>>;
   onRefresh: () => void;
 }
 
@@ -13,14 +18,13 @@ export default function GamesFilterBar({
   setSelectedResult,
   onRefresh,
 }: GamesFilterBarProps) {
-  const modes = ["all", "blitz", "rapid", "bullet"];
-  const results = ["all", "win", "loss", "draw"];
+  const modes: ModeOption[] = ["all", "blitz", "rapid", "bullet"];
+  const results: ResultOption[] = ["all", "win", "loss", "draw"];
 
   return (
     <div className="bg-white shadow-md rounded-xl p-4 flex flex-wrap justify-between items-center gap-4 border border-gray-200 mb-6">
-      {/* Left side – filters */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 flex-1">
+        <div className="flex flex-wrap gap-2">
           {modes.map((mode) => (
             <button
               key={mode}
@@ -35,9 +39,23 @@ export default function GamesFilterBar({
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap gap-2">
+          {results.map((result) => (
+            <button
+              key={result}
+              onClick={() => setSelectedResult(result)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition uppercase tracking-wide ${
+                selectedResult === result
+                  ? "bg-gray-900 text-white border-gray-900"
+                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {result}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Right side – refresh */}
       <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
         <button
           onClick={onRefresh}

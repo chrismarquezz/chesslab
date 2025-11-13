@@ -8,6 +8,7 @@ export default function Navbar() {
     { to: "/", label: "Dashboard" },
     { to: "/games", label: "Games" },
     { to: "/compare", label: "Compare" },
+    { to: "/review", label: "Review" },
   ];
 
   return (
@@ -18,7 +19,7 @@ export default function Navbar() {
           to="/"
           className="text-2xl font-extrabold text-[#00bfa6] tracking-tight hover:opacity-90 transition"
         >
-          ♟️ Chesslytics
+        Chesslytics
         </NavLink>
 
         {/* === Links === */}
