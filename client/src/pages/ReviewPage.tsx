@@ -509,7 +509,6 @@ export default function ReviewPage() {
                   <BoardControlButton
                     onClick={() => setShowBestMoveArrow((prev) => !prev)}
                     active={showBestMoveArrow}
-                    disabled={currentEval?.status !== "success"}
                     label={showBestMoveArrow ? "Hide Hint" : "Show Hint"}
                   >
                     <Swords className="h-4 w-4" />
