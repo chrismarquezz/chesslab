@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
+import {
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Palette,
+  Play,
+  Pause,
+  Swords,
+} from "lucide-react";
+import BoardControlButton from "../components/review/BoardControlButton";
 import Navbar from "../components/Navbar";
 import GameInputCard from "../components/review/GameInputCard";
-import SummaryGrid from "../components/review/SummaryGrid";
 import EngineFindingsCard, {
   type FindingRow as EngineFindingRow,
   type QualityCard as EngineQualityCard,
@@ -76,9 +87,9 @@ export default function ReviewPage() {
   const [selectedView, setSelectedView] = useState<View>("analysis");
   const [timeline, setTimeline] = useState<MoveSnapshot[]>([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
-  const [analysisSummary, setAnalysisSummary] = useState<GameSummary | null>(null);
   const [moveEvaluations, setMoveEvaluations] = useState<Record<number, MoveEvalState>>({});
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisReady, setAnalysisReady] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [boardSize, setBoardSize] = useState(640);
@@ -96,8 +107,6 @@ export default function ReviewPage() {
   const [reviewedPlies, setReviewedPlies] = useState<Set<number>>(() => new Set());
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [showBestMoveArrow, setShowBestMoveArrow] = useState(true);
-  const controlBtnClasses =
-    "px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40";
 
   const initialFen = useMemo(() => new Chess().fen(), []);
 
@@ -174,8 +183,6 @@ export default function ReviewPage() {
     return arrow ? [arrow] : [];
   }, [showBestMoveArrow, currentEval]);
 
-  const summaryCards = buildSummaryCards(analysisSummary, timeline.length, currentMoveIndex + 1);
-
   const handleLoadSample = () => {
     setPgnInput(SAMPLE_PGN.trim());
   };
@@ -204,7 +211,7 @@ export default function ReviewPage() {
     if (!pgnInput.trim()) return;
     setInputError(null);
     setAnalysisError(null);
-    setAnalysisSummary(null);
+    setAnalysisReady(false);
     setTimeline([]);
     setMoveEvaluations({});
     setReviewedPlies(new Set());
@@ -240,8 +247,8 @@ export default function ReviewPage() {
 
       const timelineResult = payload.timeline ?? parsedMoves;
       bootstrapTimeline(timelineResult, true);
-      setAnalysisSummary(payload.summary);
       setMoveEvaluations((prev) => mergeSampleEvaluations(prev, payload.samples));
+      setAnalysisReady(true);
     } catch (err: any) {
       setAnalysisError(err.message || "Failed to run analysis");
     } finally {
@@ -305,11 +312,14 @@ export default function ReviewPage() {
     );
   }, [timeline, moveEvaluations, reviewedPlies]);
 
-  const qualityStats = useMemo(
-    () => computeQualityStats(timeline, moveEvaluations, reviewedPlies),
+  const severitySummary = useMemo(
+    () => buildSeveritySummary(timeline, moveEvaluations, reviewedPlies),
     [timeline, moveEvaluations, reviewedPlies]
   );
-  const qualityCards = useMemo<EngineQualityCard[]>(() => qualityOverviewCards(qualityStats), [qualityStats]);
+  const qualityCards = useMemo<EngineQualityCard[]>(
+    () => qualityOverviewCards(severitySummary.totals),
+    [severitySummary]
+  );
   const engineRows = useMemo<EngineFindingRow[]>(
     () => buildEngineRows(evaluatedMoves, moveEvaluations, reviewedPlies),
     [evaluatedMoves, moveEvaluations, reviewedPlies]
@@ -349,28 +359,28 @@ export default function ReviewPage() {
             </div>
           </header>
 
-          {/* Input + Summary */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <GameInputCard
-              pgnInput={pgnInput}
-              onChange={setPgnInput}
-              onLoadSample={handleLoadSample}
-              onAnalyze={handleAnalyze}
-              canAnalyze={Boolean(pgnInput.trim())}
-              loading={analysisLoading}
-              inputError={inputError}
-              analysisError={analysisError}
-            />
-            <SummaryGrid cards={summaryCards} />
-          </section>
+          {!analysisReady && (
+            <div className="w-full max-w-3xl mx-auto">
+              <GameInputCard
+                pgnInput={pgnInput}
+                onChange={setPgnInput}
+                onLoadSample={handleLoadSample}
+                onAnalyze={handleAnalyze}
+                canAnalyze={Boolean(pgnInput.trim())}
+                loading={analysisLoading}
+                inputError={inputError}
+                analysisError={analysisError}
+              />
+            </div>
+          )}
 
-          {/* Interactive board & move list */}
-          <section className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-8">
-            <div className="bg-white shadow-lg rounded-2xl border border-gray-200 p-6 flex flex-col gap-4">
-              <div className="flex justify-center">
-                <Chessboard
-                  position={boardPosition}
-                  boardWidth={boardSize}
+          {analysisReady && (
+            <section className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-8">
+              <div className="bg-white shadow-lg rounded-2xl border border-gray-200 p-6 flex flex-col gap-4">
+                <div className="flex justify-center">
+                  <Chessboard
+                    position={boardPosition}
+                    boardWidth={boardSize}
                   boardOrientation={boardOrientation}
                   arePiecesDraggable={false}
                   customDarkSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].dark }}
@@ -379,68 +389,74 @@ export default function ReviewPage() {
                   customArrows={bestMoveArrows}
                 />
               </div>
-              <div className="flex flex-wrap gap-3 justify-between items-center border-t border-gray-100 pt-4">
+              <div className="flex flex-wrap gap-4 justify-between items-center border-t border-gray-100 pt-4">
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => handleSelectMove(0)} className={controlBtnClasses} disabled={!timeline.length}>
-                    First
-                  </button>
-                  <button
+                  <BoardControlButton
+                    onClick={() => handleSelectMove(0)}
+                    disabled={!timeline.length}
+                    label="First move"
+                  >
+                    <ChevronFirst className="h-4 w-4" />
+                  </BoardControlButton>
+                  <BoardControlButton
                     onClick={() => handleSelectMove(Math.max(currentMoveIndex - 1, -1))}
-                    className={controlBtnClasses}
                     disabled={timeline.length === 0 || currentMoveIndex <= 0}
+                    label="Previous move"
                   >
-                    Prev
-                  </button>
-                  <button
+                    <ChevronLeft className="h-4 w-4" />
+                  </BoardControlButton>
+                  <BoardControlButton
                     onClick={() => handleSelectMove(Math.min(currentMoveIndex + 1, timeline.length - 1))}
-                    className={controlBtnClasses}
                     disabled={timeline.length === 0 || atEnd}
+                    label="Next move"
                   >
-                    Next
-                  </button>
-                  <button onClick={() => handleSelectMove(timeline.length - 1)} className={controlBtnClasses} disabled={!timeline.length}>
-                    Last
-                  </button>
-                  <button
+                    <ChevronRight className="h-4 w-4" />
+                  </BoardControlButton>
+                  <BoardControlButton
+                    onClick={() => handleSelectMove(timeline.length - 1)}
+                    disabled={!timeline.length}
+                    label="Last move"
+                  >
+                    <ChevronLast className="h-4 w-4" />
+                  </BoardControlButton>
+                  <BoardControlButton
                     onClick={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
-                    className={controlBtnClasses}
                     disabled={!timeline.length}
+                    label="Flip Board"
                   >
-                    Flip Board
-                  </button>
+                    <RotateCcw className="h-4 w-4" />
+                  </BoardControlButton>
                 </div>
-                <div className="flex gap-2">
-                  <button
+                <div className="flex flex-wrap gap-2">
+                  <BoardControlButton
                     onClick={() => setIsThemeModalOpen(true)}
-                    className={controlBtnClasses}
+                    label="Change Theme"
                   >
-                    Change Theme
-                  </button>
-                  <button
+                    <Palette className="h-4 w-4" />
+                  </BoardControlButton>
+                  <BoardControlButton
                     onClick={handleToggleAutoPlay}
-                    className={`${controlBtnClasses} ${
-                      isAutoPlaying ? "border-[#00bfa6] text-[#00bfa6] bg-[#00bfa6]/10" : ""
-                    }`}
+                    active={isAutoPlaying}
                     disabled={!timeline.length}
+                    label={isAutoPlaying ? "Pause Auto Play" : "Play All"}
                   >
-                    {isAutoPlaying ? "Pause" : "Play All"}
-                  </button>
-                  <button
+                    {isAutoPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </BoardControlButton>
+                  <BoardControlButton
                     onClick={() => setShowBestMoveArrow((prev) => !prev)}
-                    className={`${controlBtnClasses} ${
-                      showBestMoveArrow ? "border-[#00bfa6] text-[#00bfa6] bg-[#00bfa6]/10" : ""
-                    }`}
+                    active={showBestMoveArrow}
                     disabled={currentEval?.status !== "success"}
+                    label={showBestMoveArrow ? "Hide Best Move Arrow" : "Show Best Move Arrow"}
                   >
-                    {showBestMoveArrow ? "Hide Arrow" : "Show Arrow"}
-                  </button>
+                    <Swords className="h-4 w-4" />
+                  </BoardControlButton>
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col gap-6">
               <div className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 rounded-2xl border border-gray-200 p-6 flex flex-col gap-4">
-                <h2 className="text-2xl font-semibold text-gray-800">Move List & Evaluation</h2>
+                <h2 className="text-2xl font-semibold text-gray-800">Move List</h2>
                 <div className="max-h-96 overflow-y-auto rounded-2xl border border-gray-100 bg-gray-50 p-4">
                   {timeline.length ? (
                     <table className="w-full text-sm text-gray-700">
@@ -491,7 +507,12 @@ export default function ReviewPage() {
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-200 shadow hover:shadow-2xl transition-all duration-300 p-5">
-                <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Engine Insight</p>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold text-gray-800">Evaluation</h2>
+                  <span className="text-xs uppercase tracking-wide text-gray-500">
+                    {currentMove ? `Move ${currentMove.moveNumber}` : "No move selected"}
+                  </span>
+                </div>
                 {!currentMove ? (
                   <p className="text-gray-500 text-sm">
                     Select a move to fetch Stockfish feedback for that position.
@@ -499,7 +520,7 @@ export default function ReviewPage() {
                 ) : currentEval?.status === "loading" ? (
                   <p className="text-gray-500 text-sm">Analyzing move {currentMove.moveNumber}...</p>
                 ) : currentEval?.status === "success" ? (
-                  <EvaluationDetails evaluation={currentEval.evaluation} />
+                  <EvaluationDetails evaluation={currentEval.evaluation} fen={currentMove?.fen} />
                 ) : currentEval?.status === "error" ? (
                   <p className="text-sm text-red-500">Engine error: {currentEval.error}</p>
                 ) : (
@@ -509,9 +530,10 @@ export default function ReviewPage() {
                 )}
               </div>
             </div>
-          </section>
+            </section>
+          )}
 
-          <EngineFindingsCard qualityCards={qualityCards} rows={engineRows} />
+          {/* Engine findings intentionally hidden for demo */}
         </div>
       </div>
 
@@ -548,7 +570,7 @@ function buildEngineRows(
         played: move.san,
         qualityLabel: classification.label,
         badgeClass: classification.badgeClass,
-        bestMove: state.evaluation.bestMove ? formatUciMove(state.evaluation.bestMove) : "—",
+        bestMove: formatBestMoveSan(state.evaluation.bestMove, move.fen),
         evalText: formatScore(state.evaluation.score),
         deltaLabel: formatDeltaLabel(classification.delta),
       } as EngineFindingRow;
@@ -556,33 +578,83 @@ function buildEngineRows(
     .filter((row): row is EngineFindingRow => row !== null);
 }
 
-function buildSummaryCards(summary: GameSummary | null, totalMoves: number, reviewedMoves: number) {
-  return [
-    {
-      title: "Analyzed Moves",
-      value: summary?.sampled ?? "—",
-      subtext: "Positions Stockfish evaluated",
-      accent: "text-[#00bfa6]",
-    },
-    {
-      title: "Engine Depth",
-      value: summary?.depth ?? "—",
-      subtext: "Search depth requested",
-      accent: "text-[#00bfa6]",
-    },
-    {
-      title: "Total Moves",
-      value: totalMoves || "—",
-      subtext: "Moves parsed from PGN",
-      accent: "text-gray-800",
-    },
-    {
-      title: "Moves Reviewed",
-      value: reviewedMoves > 0 ? reviewedMoves : "—",
-      subtext: "Moves stepped through on board",
-      accent: "text-gray-800",
-    },
-  ];
+interface SeveritySummary {
+  totals: Record<Severity, number>;
+  white: ColorSeveritySummary;
+  black: ColorSeveritySummary;
+}
+
+interface ColorSeveritySummary {
+  moves: number;
+  accuracy: number | null;
+  counts: Record<Severity, number>;
+}
+
+const ZERO_COUNTS: Record<Severity, number> = {
+  best: 0,
+  good: 0,
+  inaccuracy: 0,
+  mistake: 0,
+  blunder: 0,
+};
+
+const SEVERITY_PENALTIES: Record<Severity, number> = {
+  best: 0,
+  good: 1,
+  inaccuracy: 7,
+  mistake: 15,
+  blunder: 30,
+};
+
+function buildSeveritySummary(
+  timeline: MoveSnapshot[],
+  evals: Record<number, MoveEvalState>,
+  reviewed: Set<number>
+): SeveritySummary {
+  const totals: Record<Severity, number> = { ...ZERO_COUNTS };
+
+  const baseColorSummary = () => ({
+    moves: 0,
+    accuracy: null as number | null,
+    counts: { ...ZERO_COUNTS },
+    penalty: 0,
+  });
+
+  const colors = {
+    white: baseColorSummary(),
+    black: baseColorSummary(),
+  } as const;
+
+  let prevScore: number | null = null;
+  let prevMate: MateDetail | null = null;
+
+  timeline.forEach((move) => {
+    if (!reviewed.has(move.ply)) return;
+    const state = evals[move.ply];
+    if (state?.status !== "success") return;
+    const classification = classifyMove(move, state.evaluation, prevScore, prevMate);
+    totals[classification.severity] += 1;
+
+    const summary = colors[move.color];
+    summary.moves += 1;
+    summary.counts[classification.severity] += 1;
+    summary.penalty += SEVERITY_PENALTIES[classification.severity];
+
+    prevScore = getWhiteScore(state.evaluation);
+    prevMate = getMateDetail(state.evaluation);
+  });
+
+  const finalize = (data: ReturnType<typeof baseColorSummary>): ColorSeveritySummary => ({
+    moves: data.moves,
+    accuracy: data.moves > 0 ? Math.max(0, 100 - data.penalty / data.moves) : null,
+    counts: data.counts,
+  });
+
+  return {
+    totals,
+    white: finalize(colors.white),
+    black: finalize(colors.black),
+  };
 }
 
 function mergeSampleEvaluations(
@@ -648,16 +720,25 @@ function formatDeltaLabel(delta: number | null) {
   return `${symbol} ${Math.abs(delta).toFixed(2)}`;
 }
 
-function formatUciMove(uci: string) {
-  if (!uci) return "—";
-  return uci.replace(/([a-h]\d)([a-h]\d)([qrbn])?/i, (_, from, to, promo) =>
-    promo ? `${from}-${to}=${promo.toUpperCase()}` : `${from}-${to}`
-  );
+function formatBestMoveSan(bestMove?: string | null, fen?: string) {
+  if (!bestMove) return "—";
+  try {
+    const engine = fen ? new Chess(fen) : new Chess();
+    const move = engine.move({
+      from: bestMove.slice(0, 2) as Square,
+      to: bestMove.slice(2, 4) as Square,
+      promotion: bestMove[4],
+    });
+    return move?.san ?? bestMove;
+  } catch {
+    return bestMove;
+  }
 }
 
-function EvaluationDetails({ evaluation }: { evaluation: EngineEvaluation }) {
+function EvaluationDetails({ evaluation, fen }: { evaluation: EngineEvaluation; fen?: string }) {
   const percent = getEvalPercent(evaluation.score);
   const advantageText = describeAdvantage(percent);
+  const bestMoveSan = formatBestMoveSan(evaluation.bestMove, fen);
 
   return (
     <div className="text-sm text-gray-700 space-y-1">
@@ -665,7 +746,7 @@ function EvaluationDetails({ evaluation }: { evaluation: EngineEvaluation }) {
         Score: <span className="font-semibold text-[#00bfa6]">{formatScore(evaluation.score)}</span>
       </p>
       <p>
-        Best Move: <span className="font-semibold">{evaluation.bestMove || "—"}</span>
+        Best Move: <span className="font-semibold">{bestMoveSan}</span>
       </p>
       <p>Depth: {evaluation.depth}</p>
       {evaluation.pv.length > 0 && (
@@ -708,7 +789,12 @@ function classifyMove(
     const perspective = move.color === "white" ? 1 : -1;
     delta = diff * perspective;
 
-    if (delta <= -2) severity = "blunder";
+    const unchangedEval = Math.abs(diff) < 0.01; // treat virtually identical evals as unchanged
+
+    if (unchangedEval) {
+      severity = "best";
+      delta = 0;
+    } else if (delta <= -2) severity = "blunder";
     else if (delta <= -1) severity = "mistake";
     else if (delta <= -0.5) severity = "inaccuracy";
     else if (delta >= 0.3) severity = "best";
@@ -739,37 +825,6 @@ function classifyMove(
   };
 
   return { severity, label: styleMap[severity].label, badgeClass: styleMap[severity].badge, delta };
-}
-
-function computeQualityStats(
-  timeline: MoveSnapshot[],
-  evals: Record<number, MoveEvalState>,
-  reviewed: Set<number>
-) {
-  const stats: Record<Severity, number> = {
-    best: 0,
-    good: 0,
-    inaccuracy: 0,
-    mistake: 0,
-    blunder: 0,
-  };
-
-  let prevScore: number | null = null;
-  let prevMate: MateDetail | null = null;
-  timeline.forEach((move) => {
-    if (!reviewed.has(move.ply)) {
-      return;
-    }
-    const state = evals[move.ply];
-    if (state?.status === "success") {
-      const classification = classifyMove(move, state.evaluation, prevScore, prevMate);
-      stats[classification.severity] += 1;
-      prevScore = getWhiteScore(state.evaluation);
-      prevMate = getMateDetail(state.evaluation);
-    }
-  });
-
-  return stats;
 }
 
 function qualityOverviewCards(stats: Record<Severity, number>) {

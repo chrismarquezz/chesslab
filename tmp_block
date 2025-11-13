@@ -1,0 +1,13 @@
+
+          <div className="w-full max-w-3xl">x-w-3xl">
+            <GameInputCard
+              pgnInput={pgnInput}
+              onChange={setPgnInput}
+              onLoadSample={handleLoadSample}
+              onAnalyze={handleAnalyze}
+              canAnalyze={Boolean(pgnInput.trim())}
+              loading={analysisLoading}
+              inputError={inputError}
+              analysisError={analysisError}
+            />
+          </div>
