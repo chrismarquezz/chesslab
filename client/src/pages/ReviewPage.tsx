@@ -2,8 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import Navbar from "../components/Navbar";
+import GameInputCard from "../components/review/GameInputCard";
+import SummaryGrid from "../components/review/SummaryGrid";
+import EngineFindingsCard, {
+  type FindingRow as EngineFindingRow,
+  type QualityCard as EngineQualityCard,
+} from "../components/review/EngineFindingsCard";
+import ThemeSelectorModal from "../components/review/ThemeSelectorModal";
 
 type View = "analysis" | "timeline" | "insights";
+type BoardThemeKey = "modern" | "wood" | "aero";
 
 type MoveSnapshot = {
   ply: number;
@@ -75,8 +83,20 @@ export default function ReviewPage() {
   const [inputError, setInputError] = useState<string | null>(null);
   const [boardSize, setBoardSize] = useState(520);
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
+  const [boardTheme, setBoardTheme] = useState<BoardThemeKey>(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("chesslytics-theme") as BoardThemeKey | null;
+      if (stored && stored in BOARD_THEMES) {
+        return stored;
+      }
+    }
+    return "modern";
+  });
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [reviewedPlies, setReviewedPlies] = useState<Set<number>>(() => new Set());
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const controlBtnClasses =
+    "px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40";
 
   const initialFen = useMemo(() => new Chess().fen(), []);
 
@@ -90,6 +110,11 @@ export default function ReviewPage() {
     window.addEventListener("resize", resizeBoard);
     return () => window.removeEventListener("resize", resizeBoard);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("chesslytics-theme", boardTheme);
+  }, [boardTheme]);
 
   useEffect(() => {
     if (!isAutoPlaying) return;
@@ -142,10 +167,6 @@ export default function ReviewPage() {
   const currentEval = currentMove ? moveEvaluations[currentMove.ply] : null;
 
   const summaryCards = buildSummaryCards(analysisSummary, timeline.length, currentMoveIndex + 1);
-  const qualityStats = useMemo(
-    () => computeQualityStats(timeline, moveEvaluations, reviewedPlies),
-    [timeline, moveEvaluations, reviewedPlies]
-  );
 
   const handleLoadSample = () => {
     setPgnInput(SAMPLE_PGN.trim());
@@ -280,6 +301,16 @@ export default function ReviewPage() {
     );
   }, [timeline, moveEvaluations, reviewedPlies]);
 
+  const qualityStats = useMemo(
+    () => computeQualityStats(timeline, moveEvaluations, reviewedPlies),
+    [timeline, moveEvaluations, reviewedPlies]
+  );
+  const qualityCards = useMemo<EngineQualityCard[]>(() => qualityOverviewCards(qualityStats), [qualityStats]);
+  const engineRows = useMemo<EngineFindingRow[]>(
+    () => buildEngineRows(evaluatedMoves, moveEvaluations, reviewedPlies),
+    [evaluatedMoves, moveEvaluations, reviewedPlies]
+  );
+
   const atEnd = currentMoveIndex >= timeline.length - 1;
 
   return (
@@ -316,58 +347,17 @@ export default function ReviewPage() {
 
           {/* Input + Summary */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 rounded-2xl border border-gray-200 p-6 flex flex-col gap-4">
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-800">Game Input</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Paste a PGN or try the sample to preview the review workflow.
-                </p>
-              </div>
-              <textarea
-                value={pgnInput}
-                onChange={(e) => setPgnInput(e.target.value)}
-                placeholder={`[Event "Live Chess"]\n1. e4 e5 2. Nf3 Nc6 ...`}
-                className="w-full h-56 border border-gray-200 rounded-xl p-4 font-mono text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#00bfa6] focus:border-transparent resize-none"
-              />
-              {(inputError || analysisError) && (
-                <p className="text-sm text-red-500">{inputError || analysisError}</p>
-              )}
-              <div className="flex flex-wrap gap-3 justify-end">
-                <button
-                  onClick={handleLoadSample}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
-                >
-                  Load Sample
-                </button>
-                <button
-                  onClick={handleAnalyze}
-                  className={`px-5 py-2 rounded-lg text-sm font-semibold text-white ${
-                    pgnInput.trim()
-                      ? "bg-[#00bfa6] hover:bg-[#00d6b5]"
-                      : "bg-gray-300 cursor-not-allowed"
-                  } shadow-md transition`}
-                  disabled={!pgnInput.trim() || analysisLoading}
-                >
-                  {analysisLoading ? "Analyzing..." : "Analyze Game"}
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 rounded-2xl border border-gray-200 p-6">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Review Summary</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {summaryCards.map((card) => (
-                  <div key={card.title} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">{card.title}</p>
-                    <p className={`text-3xl font-bold ${card.accent}`}>{card.value}</p>
-                    <p className="text-sm text-gray-500">{card.subtext}</p>
-                  </div>
-                ))}
-              </div>
-              <p className="text-sm text-gray-500 mt-4">
-                Numbers update once analysis runs. Toggle through the tabs above to shape future review modules.
-              </p>
-            </div>
+            <GameInputCard
+              pgnInput={pgnInput}
+              onChange={setPgnInput}
+              onLoadSample={handleLoadSample}
+              onAnalyze={handleAnalyze}
+              canAnalyze={Boolean(pgnInput.trim())}
+              loading={analysisLoading}
+              inputError={inputError}
+              analysisError={analysisError}
+            />
+            <SummaryGrid cards={summaryCards} />
           </section>
 
           {/* Interactive board & move list */}
@@ -381,11 +371,10 @@ export default function ReviewPage() {
                   </span>
                 </div>
                 <button
-                  onClick={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
-                  aria-label="Flip board"
-                  className="p-2 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center"
+                  onClick={() => setIsThemeModalOpen(true)}
+                  className="px-3 py-1 rounded-full border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 transition"
                 >
-                  <span className="text-lg">⟳</span>
+                  Change Theme
                 </button>
               </div>
               <div className="flex justify-center">
@@ -394,53 +383,52 @@ export default function ReviewPage() {
                   boardWidth={boardSize}
                   boardOrientation={boardOrientation}
                   arePiecesDraggable={false}
-                  customDarkSquareStyle={{ backgroundColor: "#2d3436" }}
-                  customLightSquareStyle={{ backgroundColor: "#f0f0f0" }}
+                  customDarkSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].dark }}
+                  customLightSquareStyle={{ backgroundColor: BOARD_THEMES[boardTheme].light }}
                   customBoardStyle={{ borderRadius: "1.5rem" }}
                 />
               </div>
-              <div className="flex flex-wrap gap-3 justify-between items-center">
+              <div className="flex flex-wrap gap-3 justify-between items-center border-t border-gray-100 pt-4">
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleSelectMove(0)}
-                    className="px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40"
-                    disabled={!timeline.length}
-                  >
+                  <button onClick={() => handleSelectMove(0)} className={controlBtnClasses} disabled={!timeline.length}>
                     First
                   </button>
                   <button
                     onClick={() => handleSelectMove(Math.max(currentMoveIndex - 1, -1))}
-                    className="px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+                    className={controlBtnClasses}
                     disabled={timeline.length === 0 || currentMoveIndex <= 0}
                   >
                     Prev
                   </button>
                   <button
                     onClick={() => handleSelectMove(Math.min(currentMoveIndex + 1, timeline.length - 1))}
-                    className="px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+                    className={controlBtnClasses}
                     disabled={timeline.length === 0 || atEnd}
                   >
                     Next
                   </button>
-                  <button
-                    onClick={() => handleSelectMove(timeline.length - 1)}
-                    className="px-3 py-1 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40"
-                    disabled={!timeline.length}
-                  >
+                  <button onClick={() => handleSelectMove(timeline.length - 1)} className={controlBtnClasses} disabled={!timeline.length}>
                     Last
                   </button>
+                  <button
+                    onClick={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
+                    className={controlBtnClasses}
+                    disabled={!timeline.length}
+                  >
+                    Flip Board
+                  </button>
                 </div>
-                <button
-                  onClick={handleToggleAutoPlay}
-                  className={`px-3 py-1 rounded-lg border text-sm font-medium transition ${
-                    isAutoPlaying
-                      ? "border-[#00bfa6] text-[#00bfa6] bg-[#00bfa6]/10"
-                      : "border-gray-200 text-gray-600 hover:bg-gray-100"
-                  } disabled:opacity-40`}
-                  disabled={!timeline.length}
-                >
-                  {isAutoPlaying ? "Pause" : "Play All"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleToggleAutoPlay}
+                    className={`${controlBtnClasses} ${
+                      isAutoPlaying ? "border-[#00bfa6] text-[#00bfa6] bg-[#00bfa6]/10" : ""
+                    }`}
+                    disabled={!timeline.length}
+                  >
+                    {isAutoPlaying ? "Pause" : "Play All"}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -515,88 +503,49 @@ export default function ReviewPage() {
             </div>
           </section>
 
-          {/* Engine findings */}
-          <section className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 rounded-2xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold text-gray-800">Engine Findings</h2>
-              <span className="text-xs uppercase tracking-wide text-gray-500">
-                Live evaluations ({evaluatedMoves.length})
-              </span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              {qualityOverviewCards(qualityStats).map((card) => (
-                <div
-                  key={card.title}
-                  className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-center"
-                >
-                  <p className="text-xs uppercase tracking-wide text-gray-500">{card.title}</p>
-                  <p className={`text-2xl font-bold ${card.accent}`}>{card.value}</p>
-                </div>
-              ))}
-            </div>
-            {evaluatedMoves.length ? (
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 overflow-x-auto">
-                <table className="min-w-full text-sm text-gray-700">
-                  <thead className="text-xs uppercase tracking-wide text-gray-500">
-                    <tr>
-                      <th className="text-left px-4 py-3">Move</th>
-                      <th className="text-left px-4 py-3">Played</th>
-                      <th className="text-left px-4 py-3">Quality</th>
-                      <th className="text-left px-4 py-3">Engine Suggestion</th>
-                      <th className="text-right px-4 py-3">Eval (Δ)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {evaluatedMoves.map((move) => {
-                      const evalState = moveEvaluations[move.ply];
-                      if (evalState?.status !== "success") return null;
-                      const prevDetail = getPreviousReviewedDetail(move.ply, moveEvaluations, reviewedPlies);
-                      const classification = classifyMove(
-                        move,
-                        evalState.evaluation,
-                        prevDetail.score,
-                        prevDetail.mate
-                      );
-                      const deltaLabel = formatDeltaLabel(classification.delta);
-                      const score = evalState.evaluation.score;
-                      return (
-                        <tr key={move.ply} className="border-t border-gray-200">
-                          <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                            {move.moveNumber}.{move.color === "white" ? "" : ".."}
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-gray-800">{move.san}</td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${classification.badgeClass}`}
-                            >
-                              {classification.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {evalState.evaluation.bestMove ? formatUciMove(evalState.evaluation.bestMove) : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="font-mono font-semibold text-[#00bfa6]">
-                              {formatScore(score)}
-                            </span>
-                            <span className="text-xs text-gray-500 ml-2">{deltaLabel}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">
-                Run an analysis or click through moves on the board to start building a findings list.
-              </p>
-            )}
-          </section>
+          <EngineFindingsCard qualityCards={qualityCards} rows={engineRows} />
         </div>
       </div>
+
+      <ThemeSelectorModal
+        open={isThemeModalOpen}
+        themes={BOARD_THEMES}
+        selectedKey={boardTheme}
+        onSelect={(key) => {
+          setBoardTheme(key as BoardThemeKey);
+          setIsThemeModalOpen(false);
+        }}
+        onClose={() => setIsThemeModalOpen(false)}
+      />
     </>
   );
+}
+
+function buildEngineRows(
+  evaluated: MoveSnapshot[],
+  evalStates: Record<number, MoveEvalState>,
+  reviewed: Set<number>
+): EngineFindingRow[] {
+  return evaluated
+    .map((move) => {
+      if (!reviewed.has(move.ply)) return null;
+      const state = evalStates[move.ply];
+      if (state?.status !== "success") return null;
+      const prevDetail = getPreviousReviewedDetail(move.ply, evalStates, reviewed);
+      const classification = classifyMove(move, state.evaluation, prevDetail.score, prevDetail.mate);
+
+      return {
+        id: move.ply,
+        moveLabel: `${move.moveNumber}.${move.color === "white" ? "" : ".."}`,
+        played: move.san,
+        qualityLabel: classification.label,
+        badgeClass: classification.badgeClass,
+        bestMove: state.evaluation.bestMove ? formatUciMove(state.evaluation.bestMove) : "—",
+        evalText: formatScore(state.evaluation.score),
+        deltaLabel: formatDeltaLabel(classification.delta),
+      } as EngineFindingRow;
+    })
+    .filter((row): row is EngineFindingRow => row !== null);
 }
 
 function buildSummaryCards(summary: GameSummary | null, totalMoves: number, reviewedMoves: number) {
@@ -828,3 +777,15 @@ function getPreviousReviewedDetail(
   }
   return { score: null, mate: null };
 }
+const BOARD_THEMES: Record<
+  BoardThemeKey,
+  {
+    light: string;
+    dark: string;
+    label: string;
+  }
+> = {
+  modern: { light: "#f0f0f0", dark: "#2d3436", label: "Modern" },
+  wood: { light: "#f3d9b1", dark: "#8c5a2b", label: "Wood" },
+  aero: { light: "#e3f2fd", dark: "#90a4ae", label: "Aero" },
+};
