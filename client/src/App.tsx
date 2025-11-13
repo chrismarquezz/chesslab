@@ -49,11 +49,9 @@ export default function App() {
       <Navbar />
 
       <header className="text-center mb-10">
-        <h1 className="text-5xl font-extrabold text-[#00bfa6] mb-2">
-          Chesslytics Dashboard
-        </h1>
+        <h1 className="text-5xl font-extrabold text-[#00bfa6] mb-2">Chesslytics</h1>
         <p className="text-gray-500 text-lg">
-          Analyze your performance and track your chess journey
+          Analyze your performance and track your chess progress
         </p>
       </header>
 

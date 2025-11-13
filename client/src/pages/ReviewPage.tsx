@@ -344,6 +344,17 @@ export default function ReviewPage() {
   }, [handleSelectMove, isAutoPlaying, currentMoveIndex, timeline]);
 
   useEffect(() => {
+    if (currentMoveIndex < 0) return;
+    const listContainer = document.querySelector<HTMLElement>("[data-move-list]");
+    const activeButton = document.querySelector<HTMLElement>(`[data-move-index="${currentMoveIndex}"]`);
+    if (!listContainer || !activeButton) return;
+    const containerRect = listContainer.getBoundingClientRect();
+    const buttonRect = activeButton.getBoundingClientRect();
+    const offset = buttonRect.top - containerRect.top - containerRect.height / 2 + buttonRect.height / 2;
+    listContainer.scrollBy({ top: offset, behavior: "smooth" });
+  }, [currentMoveIndex]);
+
+  useEffect(() => {
     if (!analysisReady || !timeline.length) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -515,7 +526,7 @@ export default function ReviewPage() {
 
             <div className="flex flex-col gap-6">
               <div className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 rounded-2xl border border-gray-200 overflow-hidden">
-                <div className="max-h-96 overflow-y-auto bg-gray-50">
+                <div className="max-h-96 overflow-y-auto bg-gray-50" data-move-list>
                   {timeline.length ? (
                     <table className="w-full text-sm text-gray-700">
                       <thead className="text-xs uppercase tracking-wide text-gray-100 bg-gray-800 sticky top-0 z-10">
@@ -528,10 +539,11 @@ export default function ReviewPage() {
                       <tbody className="bg-gray-50">
                         {movePairs.map((pair) => (
                           <tr key={pair.moveNumber} className="border-b border-gray-200 last:border-none">
-                            <td className="py-2 pr-4 text-xs font-mono text-gray-500 text-center">{pair.moveNumber}.</td>
+                            <td className="py-2 pr-4 text-xs font-mono text-gray-500 text-center">{pair.moveNumber}</td>
                             <td className="py-1 px-4">
                               {pair.white ? (
                                 <button
+                                  data-move-index={pair.whiteIndex}
                                   className={`w-full text-center px-2 py-1 rounded-lg transition ${
                                     currentMoveIndex === pair.whiteIndex
                                       ? "bg-[#00bfa6]/10 text-[#00bfa6]"
@@ -548,6 +560,7 @@ export default function ReviewPage() {
                             <td className="py-1 px-4">
                               {pair.black ? (
                                 <button
+                                  data-move-index={pair.blackIndex}
                                   className={`w-full text-center px-2 py-1 rounded-lg transition ${
                                     currentMoveIndex === pair.blackIndex
                                       ? "bg-[#00bfa6]/10 text-[#00bfa6]"
@@ -767,17 +780,7 @@ function EvaluationDetails({ evaluation, fen }: { evaluation: EngineEvaluation; 
         Best Move: <span className="font-semibold">{bestMoveSan}</span>
       </p>
       <p>Depth: {evaluation.depth}</p>
-      {pvLines.length > 0 && (
-        <div className="text-xs text-gray-600 space-y-1">
-          <p className="uppercase tracking-wide text-[10px] text-gray-500">Top variations</p>
-          {pvLines.map((line, index) => (
-            <div key={`${line}-${index}`} className="flex gap-2">
-              <span className="text-gray-400">#{index + 1}</span>
-              <span className="font-mono">{line}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* PV rendering temporarily disabled */}
       <div className="mt-3 space-y-1">
         <div className="flex justify-between text-xs text-gray-500">
           <span>White</span>

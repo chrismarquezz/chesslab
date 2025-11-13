@@ -13,16 +13,18 @@ interface RatingTrendChartProps {
   selectedMode: "all" | "bullet" | "blitz" | "rapid";
 }
 
-export default function RatingTrendChart({
-  trendData,
-}: RatingTrendChartProps) {
+export default function RatingTrendChart({ trendData, selectedMode }: RatingTrendChartProps) {
   return (
     <section className="bg-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 rounded-2xl p-6 border border-gray-200">
       <h3 className="text-2xl font-semibold text-gray-800 pb-2 border-b border-gray-200 mb-4">
         Rating Trend
       </h3>
 
-      {trendData.length === 0 ? (
+      {selectedMode === "all" ? (
+        <p className="text-gray-500 text-center py-10">
+          Select a specific game mode to view its rating trend.
+        </p>
+      ) : trendData.length === 0 ? (
         <p className="text-gray-500 text-center py-10">No trend data available</p>
       ) : (
         <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-6 h-[360px]">

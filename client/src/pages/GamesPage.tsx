@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useUser } from "../context/UserContext";
 import Navbar from "../components/Navbar";
 import GameStatsSummary from "../components/GameStatsSummary";
-import GamesFilterBar, { type ModeOption, type ResultOption } from "../components/GamesFilterBar";
+import GamesFilterBar, { type ModeOption } from "../components/GamesFilterBar";
 import RecentGamesTable from "../components/RecentGamesTable";
 import { getUserOutcome } from "../utils/result";
 import PerformanceByColorChart from "../components/PerformanceByColorChart";
@@ -11,15 +11,9 @@ import UpsetPotential from "../components/UpsetPotential";
 export default function GamesPage() {
   const { username, games, gamesLoading, gamesError, refreshGames } = useUser();
   const [selectedMode, setSelectedMode] = useState<ModeOption>("all");
-  const [selectedResult, setSelectedResult] = useState<ResultOption>("all");
 
   // --- Apply filters for display ---
-  const filteredGames = games.filter((g) => {
-    const modeOK = selectedMode === "all" || g.time_class === selectedMode;
-    const outcome = getUserOutcome(g, username);
-    const resultOK = selectedResult === "all" || selectedResult === outcome;
-    return modeOK && resultOK;
-  });
+  const filteredGames = games.filter((g) => selectedMode === "all" || g.time_class === selectedMode);
 
   // --- Win rate ---
   const modeFiltered = games.filter(
@@ -61,13 +55,7 @@ export default function GamesPage() {
 
           {/* Filters + Timestamp */}
           <div className="relative">
-            <GamesFilterBar
-              selectedMode={selectedMode}
-              setSelectedMode={setSelectedMode}
-              selectedResult={selectedResult}
-              setSelectedResult={setSelectedResult}
-              onRefresh={refreshGames}
-            />
+            <GamesFilterBar selectedMode={selectedMode} setSelectedMode={setSelectedMode} onRefresh={refreshGames} />
           </div>
 
           {/* Stats Summary */}

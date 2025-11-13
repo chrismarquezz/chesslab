@@ -1,25 +1,15 @@
 import type { Dispatch, SetStateAction } from "react";
 
 export type ModeOption = "all" | "blitz" | "rapid" | "bullet";
-export type ResultOption = "all" | "win" | "loss" | "draw";
 
 interface GamesFilterBarProps {
   selectedMode: ModeOption;
   setSelectedMode: Dispatch<SetStateAction<ModeOption>>;
-  selectedResult: ResultOption;
-  setSelectedResult: Dispatch<SetStateAction<ResultOption>>;
   onRefresh: () => void;
 }
 
-export default function GamesFilterBar({
-  selectedMode,
-  setSelectedMode,
-  selectedResult,
-  setSelectedResult,
-  onRefresh,
-}: GamesFilterBarProps) {
+export default function GamesFilterBar({ selectedMode, setSelectedMode, onRefresh }: GamesFilterBarProps) {
   const modes: ModeOption[] = ["all", "blitz", "rapid", "bullet"];
-  const results: ResultOption[] = ["all", "win", "loss", "draw"];
 
   return (
     <div className="bg-white shadow-md rounded-xl p-4 flex flex-wrap justify-between items-center gap-4 border border-gray-200 mb-6">
@@ -36,21 +26,6 @@ export default function GamesFilterBar({
               }`}
             >
               {mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {results.map((result) => (
-            <button
-              key={result}
-              onClick={() => setSelectedResult(result)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition uppercase tracking-wide ${
-                selectedResult === result
-                  ? "bg-gray-900 text-white border-gray-900"
-                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {result}
             </button>
           ))}
         </div>

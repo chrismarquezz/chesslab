@@ -40,10 +40,10 @@ export default function WinLossPieChart({ stats, selectedMode }: WinLossPieChart
       {totalGames === 0 ? (
         <p className="text-gray-500 text-center mt-10">No data available</p>
       ) : (
-        <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-6 h-[360px]">
-          <div className="w-full h-full">
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 px-6 py-6 h-[380px]">
+          <div className="w-full h-full overflow-visible">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 12, right: 36, bottom: 12, left: 36 }}>
+              <PieChart margin={{ top: 24, right: 48, bottom: 24, left: 48 }}>
                 <Pie
                   data={chartData}
                   cx="50%"

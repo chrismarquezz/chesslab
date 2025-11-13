@@ -5,10 +5,10 @@ export default function Navbar() {
   const location = useLocation();
 
   const links = [
-    { to: "/", label: "Dashboard" },
+    { to: "/", label: "Stats" },
     { to: "/games", label: "Games" },
-    { to: "/compare", label: "Compare" },
     { to: "/review", label: "Review" },
+    // { to: "/compare", label: "Compare" },
   ];
 
   return (

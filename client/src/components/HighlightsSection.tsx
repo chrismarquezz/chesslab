@@ -14,14 +14,15 @@ export default function HighlightsSection({ username, selectedMode }: Highlights
   const [longestLossStreak, setLongestLossStreak] = useState<number>(0);
 
   useEffect(() => {
-    if (!username || selectedMode === "all") {
+    if (!username) {
       setStrongestOpponent(null);
       setLongestWinStreak(0);
       setLongestLossStreak(0);
       return;
     }
 
-    const modeGames = games.filter((g) => g.time_class === selectedMode);
+    const modeGames =
+      selectedMode === "all" ? games : games.filter((g) => g.time_class === selectedMode);
     if (!modeGames.length) {
       setStrongestOpponent(null);
       setLongestWinStreak(0);
