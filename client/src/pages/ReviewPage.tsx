@@ -10,7 +10,7 @@ import {
   Palette,
   Play,
   Pause,
-  Swords,
+  Lightbulb,
 } from "lucide-react";
 import BoardControlButton from "../components/review/BoardControlButton";
 import Navbar from "../components/Navbar";
@@ -33,16 +33,24 @@ type MoveSnapshot = {
 };
 
 type EngineScore = { type: "cp" | "mate"; value: number };
+type EngineLine = {
+  move: string;
+  score: EngineScore | null;
+  pv: string[];
+};
 type EngineEvaluation = {
   bestMove: string;
   score: EngineScore | null;
   depth: number;
   pv: string[];
+  lines: EngineLine[];
 };
+
+const UCI_MOVE_REGEX = /^[a-h][1-8][a-h][1-8][qrbn]?$/i;
 
 type MoveEvalState =
   | { status: "idle" }
-  | { status: "loading" }
+  | { status: "loading"; previous?: EngineEvaluation }
   | { status: "success"; evaluation: EngineEvaluation }
   | { status: "error"; error: string };
 
@@ -123,6 +131,16 @@ export default function ReviewPage() {
   const [isClearing, setIsClearing] = useState(false);
 
   const initialFen = useMemo(() => new Chess().fen(), []);
+  const startingSnapshot = useMemo<MoveSnapshot>(
+    () => ({
+      ply: 0,
+      moveNumber: 0,
+      san: "start",
+      color: "white",
+      fen: initialFen,
+    }),
+    [initialFen]
+  );
 
   useEffect(() => {
     const resizeBoard = () => {
@@ -223,6 +241,11 @@ export default function ReviewPage() {
   const currentMove = currentMoveIndex >= 0 ? timeline[currentMoveIndex] : null;
   const currentEval = currentMove ? moveEvaluations[currentMove.ply] : null;
 
+  const currentFen = currentMove?.fen ?? initialFen;
+  const currentEvaluationState = currentMove
+    ? moveEvaluations[currentMove.ply]
+    : moveEvaluations[0];
+
   useEffect(() => {
     if (currentEval?.status === "success" && currentMove) {
       setLastEvaluationDisplay({
@@ -269,37 +292,53 @@ export default function ReviewPage() {
     [timeline, moveEvaluations]
   );
 
-  const bestMoveArrows = useMemo(() => {
-    if (!showBestMoveArrow) return [] as Array<[Square, Square]>;
-    if (currentEval?.status !== "success") return [];
-    const arrow = getArrowFromBestMove(currentEval.evaluation.bestMove);
-    return arrow ? [arrow] : [];
-  }, [showBestMoveArrow, currentEval]);
-
   const displayedEvaluation =
-    currentEval?.status === "success" && currentMove
-      ? { evaluation: currentEval.evaluation, fen: currentMove.fen }
-      : currentMove && lastEvaluationDisplay?.fen === currentMove.fen
-        ? lastEvaluationDisplay
-        : null;
+    currentEvaluationState?.status === "success"
+      ? { evaluation: currentEvaluationState.evaluation, fen: currentFen }
+      : currentEvaluationState?.status === "loading" && currentEvaluationState.previous
+        ? { evaluation: currentEvaluationState.previous, fen: currentFen }
+        : currentFen === lastEvaluationDisplay?.fen
+          ? lastEvaluationDisplay
+          : lastEvaluationDisplay;
+
+  const stableEvaluation = displayedEvaluation || lastEvaluationDisplay || null;
+
+  const bestMoveArrows = useMemo(() => {
+    if (!showBestMoveArrow || !displayedEvaluation) return [] as Array<[Square, Square]>;
+    const arrow = getArrowFromBestMove(displayedEvaluation.evaluation.bestMove);
+    return arrow ? [arrow] : [];
+  }, [showBestMoveArrow, displayedEvaluation]);
   const currentEvaluationScore = displayedEvaluation?.evaluation.score ?? null;
   const currentEvaluationMateWinner = displayedEvaluation
     ? getMateWinner(currentEvaluationScore, displayedEvaluation.fen)
     : undefined;
-  const evaluationPercent = getEvalPercent(currentEvaluationScore, currentEvaluationMateWinner);
+  const evaluationPercent = displayedEvaluation
+    ? getEvalPercent(currentEvaluationScore, currentEvaluationMateWinner)
+    : 0.5;
   const evaluationSummary = displayedEvaluation
     ? describeAdvantage(evaluationPercent, currentEvaluationScore, currentEvaluationMateWinner)
     : "No evaluation yet.";
+  const engineStatus = currentEvaluationState?.status;
+  const engineError = currentEvaluationState?.status === "error" ? currentEvaluationState.error : null;
 
   const handleLoadSample = () => {
     setPgnInput(SAMPLE_PGN.trim());
   };
 
   const requestEvaluation = useCallback(async (move: MoveSnapshot) => {
-    setMoveEvaluations((prev) => ({
-      ...prev,
-      [move.ply]: { status: "loading" },
-    }));
+    setMoveEvaluations((prev) => {
+      const prevState = prev[move.ply];
+      const previousEvaluation =
+        prevState?.status === "success"
+          ? prevState.evaluation
+          : prevState?.status === "loading"
+            ? prevState.previous
+            : undefined;
+      return {
+        ...prev,
+        [move.ply]: { status: "loading", previous: previousEvaluation },
+      };
+    });
     try {
       const response = await fetch(`${API_BASE_URL}/api/review/evaluate`, {
         method: "POST",
@@ -487,8 +526,34 @@ export default function ReviewPage() {
 
   const handleToggleAutoPlay = () => {
     if (!timeline.length) return;
-    setIsAutoPlaying((prev) => !prev);
+    if (isAutoPlaying) {
+      setIsAutoPlaying(false);
+      return;
+    }
+    const nextIndex =
+      currentMoveIndex < timeline.length - 1 ? currentMoveIndex + 1 : currentMoveIndex === -1 ? 0 : currentMoveIndex;
+    if (nextIndex !== null && nextIndex !== currentMoveIndex) {
+      handleSelectMove(nextIndex);
+    }
+    setIsAutoPlaying(true);
   };
+
+  useEffect(() => {
+    if (!analysisReady || isClearing) return;
+    const hasLoading = Object.values(moveEvaluations).some((state) => state?.status === "loading");
+    if (hasLoading) return;
+    if (!moveEvaluations[0] || moveEvaluations[0]?.status === "idle") {
+      requestEvaluation(startingSnapshot);
+      return;
+    }
+    const pendingMove = timeline.find((move) => {
+      const state = moveEvaluations[move.ply];
+      return !state || state.status === "idle";
+    });
+    if (pendingMove) {
+      requestEvaluation(pendingMove);
+    }
+  }, [analysisReady, isClearing, moveEvaluations, requestEvaluation, startingSnapshot, timeline]);
 
   const handleInspectFromTimeline = (index: number) => {
     handleSelectMove(index);
@@ -644,7 +709,7 @@ export default function ReviewPage() {
                     active={showBestMoveArrow}
                     label={showBestMoveArrow ? "Hide Hint" : "Show Hint"}
                   >
-                    <Swords className="h-4 w-4" />
+                    <Lightbulb className="h-4 w-4" />
                   </BoardControlButton>
                   <BoardControlButton
                     onClick={() => setIsThemeModalOpen(true)}
@@ -717,27 +782,18 @@ export default function ReviewPage() {
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-200 shadow hover:shadow-2xl transition-all duration-300 p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-xl font-semibold text-gray-800">Evaluation</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800">Engine</h2>
                   <span className="text-xs uppercase tracking-wide text-gray-500">
-                    {currentMove ? `Move ${currentMove.moveNumber}` : "No move selected"}
+                    {currentMove ? `Move ${currentMove.moveNumber}` : "Initial position"}
                   </span>
                 </div>
-                {!currentMove ? (
-                  <p className="text-gray-500 text-sm">
-                    Select a move to fetch Stockfish feedback for that position.
-                  </p>
-                ) : currentEval?.status === "error" ? (
-                  <p className="text-sm text-red-500">Engine error: {currentEval.error}</p>
-                ) : displayedEvaluation ? (
-                  <EvaluationDetails
-                    evaluation={displayedEvaluation.evaluation}
-                    fen={displayedEvaluation.fen}
-                  />
+                {engineStatus === "error" && !stableEvaluation ? (
+                  <p className="text-sm text-red-500">Engine error: {engineError || "Unable to evaluate position."}</p>
+                ) : !stableEvaluation ? (
+                  <p className="text-sm text-gray-500">Analyzing current position…</p>
                 ) : (
-                  <p className="text-sm text-gray-500">
-                    No evaluation yet. Step through the move or rerun analysis to prefetch Stockfish output.
-                  </p>
+                  <EngineLines evaluation={stableEvaluation.evaluation} fen={stableEvaluation.fen} />
                 )}
               </div>
             </div>
@@ -837,7 +893,7 @@ function formatScore(score: EngineScore | null) {
 }
 
 function getArrowFromBestMove(bestMove?: string | null): [Square, Square] | null {
-  if (!bestMove || bestMove.length < 4) return null;
+  if (!bestMove || !UCI_MOVE_REGEX.test(bestMove)) return null;
   const from = bestMove.slice(0, 2);
   const to = bestMove.slice(2, 4);
   const squareRegex = /^[a-h][1-8]$/;
@@ -846,7 +902,7 @@ function getArrowFromBestMove(bestMove?: string | null): [Square, Square] | null
 }
 
 function formatBestMoveSan(bestMove?: string | null, fen?: string) {
-  if (!bestMove) return "—";
+  if (!bestMove || !UCI_MOVE_REGEX.test(bestMove)) return "—";
   try {
     const engine = fen ? new Chess(fen) : new Chess();
     const move = engine.move({
@@ -866,9 +922,10 @@ function formatPvLines(pv: string[], fen?: string): string[] {
   const fenParts = fen?.split(" ");
   let turn: "w" | "b" = fenParts && fenParts[1] === "b" ? "b" : "w";
   let moveNumber = fenParts && fenParts[5] ? Number(fenParts[5]) || 1 : 1;
-  const moves: string[] = [];
+  const segments: string[] = [];
 
   for (const move of pv) {
+    if (!UCI_MOVE_REGEX.test(move)) break;
     const parsed = engine.move({
       from: move.slice(0, 2) as Square,
       to: move.slice(2, 4) as Square,
@@ -877,14 +934,37 @@ function formatPvLines(pv: string[], fen?: string): string[] {
     if (!parsed) break;
 
     const isWhiteMove = turn === "w";
-    const prefix = isWhiteMove ? `${moveNumber}.` : `${moveNumber}...`;
-    moves.push(`${prefix} ${parsed.san}`);
-    if (!isWhiteMove) moveNumber += 1;
+    if (isWhiteMove) {
+      segments.push(`${moveNumber}. ${parsed.san}`);
+    } else if (segments.length) {
+      segments[segments.length - 1] = `${segments[segments.length - 1]} ${parsed.san}`;
+      moveNumber += 1;
+    } else {
+      segments.push(`${moveNumber}... ${parsed.san}`);
+      moveNumber += 1;
+    }
     turn = isWhiteMove ? "b" : "w";
   }
 
-  return moves.length ? [moves.join(" ")] : [];
+  return segments.length ? [segments.join(" ")] : [];
 }
+
+function formatLineContinuation(line: EngineLine, fen?: string): string {
+  if (!line || !line.move || !UCI_MOVE_REGEX.test(line.move)) return "";
+  try {
+    const engine = fen ? new Chess(fen) : new Chess();
+    const moved = engine.move({
+      from: line.move.slice(0, 2) as Square,
+      to: line.move.slice(2, 4) as Square,
+      promotion: line.move[4],
+    });
+    if (!moved) return "";
+    return formatPvLines(line.pv.slice(1), engine.fen())[0] ?? "";
+  } catch {
+    return "";
+  }
+}
+
 
 function getMateWinner(score: EngineScore | null, fen?: string): "White" | "Black" | undefined {
   if (!score || score.type !== "mate") return undefined;
@@ -896,21 +976,59 @@ function getMateWinner(score: EngineScore | null, fen?: string): "White" | "Blac
   return undefined;
 }
 
-function EvaluationDetails({ evaluation, fen }: { evaluation: EngineEvaluation; fen?: string }) {
-  const mateWinner = getMateWinner(evaluation.score, fen);
-  const percent = getEvalPercent(evaluation.score, mateWinner);
-  const advantageText = describeAdvantage(percent, evaluation.score, mateWinner);
-  const bestMoveSan = formatBestMoveSan(evaluation.bestMove, fen);
-  const pvLines = formatPvLines(evaluation.pv, fen);
+function EngineLines({ evaluation, fen }: { evaluation: EngineEvaluation; fen?: string }) {
+  const lines = (evaluation.lines && evaluation.lines.length
+    ? evaluation.lines
+    : [
+        {
+          move: evaluation.bestMove,
+          score: evaluation.score,
+          pv: evaluation.pv,
+        },
+      ]
+  ).slice(0, 3);
+
+  const mateResult =
+    evaluation.score?.type === "mate" && evaluation.score.value === 0
+      ? evaluation.score.value >= 0
+        ? "1-0"
+        : "0-1"
+      : null;
+  if (mateResult) {
+    const winnerText = evaluation.score!.value >= 0 ? "Checkmate for White" : "Checkmate for Black";
+    return (
+      <div className="text-center">
+        <p className="text-3xl font-bold text-gray-900">{mateResult}</p>
+        <p className="text-sm text-gray-500 mt-1">{winnerText}</p>
+      </div>
+    );
+  }
+
+  if (!lines.length) {
+    return <p className="text-sm text-gray-500">No engine suggestions available for this position.</p>;
+  }
 
   return (
-    <div className="text-sm text-gray-700 space-y-1">
-      <p>
-        Best Move: <span className="font-semibold">{bestMoveSan}</span>
-      </p>
-      <p>Depth: {evaluation.depth}</p>
-      {/* PV rendering temporarily disabled */}
-      <p className="text-xs text-gray-500 pt-2">{advantageText}</p>
+    <div className="space-y-3">
+      {lines.map((line, index) => {
+        const moveSan = formatBestMoveSan(line.move, fen);
+        const mainLine = formatLineContinuation(line, fen);
+        return (
+          <div
+            key={`${line.move}-${index}`}
+            className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 p-3"
+          >
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500">#{index + 1}</p>
+              <p className="text-lg font-semibold text-gray-900">{moveSan}</p>
+              {mainLine && <p className="text-xs text-gray-500">{mainLine}</p>}
+            </div>
+            <div className="text-right text-sm font-semibold text-gray-700">
+              {line.score ? formatScore(line.score) : "—"}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

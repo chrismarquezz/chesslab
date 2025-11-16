@@ -9,11 +9,18 @@ export interface EngineScore {
   value: number;
 }
 
+export interface EngineLine {
+  move: string;
+  score: EngineScore | null;
+  pv: string[];
+}
+
 export interface EngineEvaluation {
   bestMove: string;
   score: EngineScore | null;
   depth: number;
   pv: string[];
+  lines: EngineLine[];
   raw: string[];
 }
 
@@ -105,13 +112,12 @@ export function evaluateFen(fen: string, depth = 14): Promise<EngineEvaluation> 
         waiters.push({ token, resolve: tokenResolve });
       });
 
-    let lastInfo: Partial<EngineEvaluation> = {
+    let lastInfo: ParsedInfo = {
       score: null,
       depth,
       pv: [],
-      raw: rawOutput,
-      bestMove: "",
     };
+    const multiPv: Record<number, EngineLine> = {};
 
     const handleData = (chunk: Buffer) => {
       const text = chunk.toString();
@@ -121,16 +127,49 @@ export function evaluateFen(fen: string, depth = 14): Promise<EngineEvaluation> 
       text.split(/\r?\n/).forEach((line) => {
         if (!line) return;
         if (line.startsWith("info")) {
-          lastInfo = { ...lastInfo, ...parseInfo(line) };
+          const parsed = parseInfo(line);
+          lastInfo = { ...lastInfo, ...parsed };
+          if (parsed.pv && parsed.pv.length > 0) {
+            const lane = parsed.multipv ?? 1;
+            multiPv[lane] = {
+              move: parsed.pv[0],
+              score: parsed.score ?? multiPv[lane]?.score ?? null,
+              pv: parsed.pv,
+            };
+          }
         } else if (line.startsWith("bestmove")) {
           const [, bestMove] = line.split(" ");
           cleanup();
+          const sortedLines = Object.keys(multiPv)
+            .map((key) => ({
+              order: Number(key),
+              line: multiPv[Number(key)],
+            }))
+            .filter(({ line }) => Boolean(line?.move))
+            .sort((a, b) => a.order - b.order)
+            .map(({ line }) => line as EngineLine)
+            .slice(0, 3);
+
+          if (!sortedLines.length && (lastInfo.pv?.length ?? 0) > 0) {
+            sortedLines.push({
+              move: lastInfo.pv![0],
+              score: lastInfo.score ?? null,
+              pv: lastInfo.pv!,
+            });
+          }
+
+          if (!sortedLines.length && bestMove) {
+            sortedLines.push({ move: bestMove, score: lastInfo.score ?? null, pv: [bestMove] });
+          }
+
+          const primaryLine = sortedLines[0];
           const evaluation = normalizeEvaluationForFen(
             {
-              bestMove: bestMove || "",
-              score: lastInfo.score ?? null,
+              bestMove: bestMove || primaryLine?.move || "",
+              score: primaryLine?.score ?? lastInfo.score ?? null,
               depth: lastInfo.depth ?? depth,
-              pv: lastInfo.pv ?? [],
+              pv: primaryLine?.pv ?? lastInfo.pv ?? [],
+              lines: sortedLines,
               raw: rawOutput,
             },
             fen
@@ -174,6 +213,8 @@ export function evaluateFen(fen: string, depth = 14): Promise<EngineEvaluation> 
     const run = async () => {
       await commandAndWait("uci", "uciok");
       await commandAndWait("isready", "readyok");
+      send("setoption name MultiPV value 3");
+      await commandAndWait("isready", "readyok");
       send(`position fen ${fen}`);
       send(`go depth ${depth}`);
     };
@@ -190,9 +231,11 @@ export function evaluateFen(fen: string, depth = 14): Promise<EngineEvaluation> 
   });
 }
 
-function parseInfo(line: string): Partial<EngineEvaluation> {
+type ParsedInfo = Partial<EngineEvaluation> & { multipv?: number };
+
+function parseInfo(line: string): ParsedInfo {
   const tokens = line.trim().split(/\s+/);
-  const info: Partial<EngineEvaluation> = {};
+  const info: ParsedInfo = {};
 
   const depthIdx = tokens.indexOf("depth");
   if (depthIdx !== -1) {
@@ -216,18 +259,34 @@ function parseInfo(line: string): Partial<EngineEvaluation> {
     info.pv = tokens.slice(pvIdx + 1);
   }
 
+  const multipvIdx = tokens.indexOf("multipv");
+  if (multipvIdx !== -1) {
+    const multipvValue = Number(tokens[multipvIdx + 1]);
+    if (!Number.isNaN(multipvValue)) {
+      info.multipv = multipvValue;
+    }
+  }
+
   return info;
 }
 
 function normalizeEvaluationForFen(evaluation: EngineEvaluation, fen: string): EngineEvaluation {
   const turn = fen.split(" ")[1];
-  if (!evaluation.score || (turn !== "w" && turn !== "b")) return evaluation;
+  if (turn !== "w" && turn !== "b") return evaluation;
   const multiplier = turn === "w" ? 1 : -1;
+  const normalizeScore = (score: EngineScore | null) =>
+    score
+      ? {
+          ...score,
+          value: score.value * multiplier,
+        }
+      : null;
   return {
     ...evaluation,
-    score: {
-      ...evaluation.score,
-      value: evaluation.score.value * multiplier,
-    },
+    score: normalizeScore(evaluation.score),
+    lines: evaluation.lines.map((line) => ({
+      ...line,
+      score: normalizeScore(line.score),
+    })),
   };
 }
