@@ -8,6 +8,7 @@ export type MoveSnapshot = {
   san: string;
   color: "white" | "black";
   fen: string;
+  uci?: string;
 };
 
 export type EngineScore = { type: "cp" | "mate"; value: number };
@@ -50,3 +51,35 @@ export interface GameAnalysisResponse {
 }
 
 export type Arrow = [Square, Square];
+
+export type MoveQualityLabel = "Best" | "Good" | "Inaccuracy" | "Mistake" | "Blunder" | "Forced";
+
+export interface MoveQuality {
+  label: MoveQualityLabel;
+  loss: number;
+  description: string;
+}
+
+export interface BookMoveStats {
+  san: string;
+  uci: string;
+  white: number;
+  draws: number;
+  black: number;
+  total: number;
+  averageRating?: number;
+}
+
+export interface BookPositionInfo {
+  fen: string;
+  moves: BookMoveStats[];
+  opening?: { eco?: string; name?: string };
+  total: number;
+}
+
+export interface BookMoveStatus {
+  inBook: boolean;
+  eco?: string;
+  opening?: string;
+  moveStats?: BookMoveStats;
+}

@@ -1,5 +1,6 @@
 import express from "express";
 import { analyzeGameWithEngine, evaluateFen } from "../services/stockfishService";
+import { fetchBookMoves } from "../services/bookService";
 
 const router = express.Router();
 
@@ -43,6 +44,22 @@ router.post("/evaluate", async (req, res) => {
       });
     }
     res.status(500).json({ error: err?.message || "Failed to evaluate position" });
+  }
+});
+
+router.get("/book", async (req, res) => {
+  const { fen, moves } = req.query;
+  if (!fen || typeof fen !== "string") {
+    return res.status(400).json({ error: "fen is required" });
+  }
+  const parsedLimit = typeof moves === "string" ? Number.parseInt(moves, 10) : NaN;
+  const moveLimit = Number.isFinite(parsedLimit) ? parsedLimit : 8;
+  try {
+    const result = await fetchBookMoves(fen, moveLimit);
+    res.json(result);
+  } catch (err: any) {
+    console.error("❌ Book lookup failed:", err);
+    res.status(500).json({ error: err?.message || "Failed to fetch book moves" });
   }
 });
 

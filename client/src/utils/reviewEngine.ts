@@ -5,6 +5,8 @@ import type {
   EngineSample,
   EngineScore,
   MoveEvalState,
+  MoveQuality,
+  MoveQualityLabel,
   MoveSnapshot,
 } from "../types/review";
 
@@ -54,6 +56,7 @@ export function buildTimelineFromPgn(pgn: string): MoveSnapshot[] {
       san: move.san,
       color: move.color === "w" ? "white" : "black",
       fen: chess.fen(),
+      uci: `${move.from}${move.to}${move.promotion ?? ""}`,
     });
   });
   return snapshots;
@@ -177,4 +180,112 @@ export function describeAdvantage(
   if (percent <= 0.2) return "Decisive advantage for Black";
   if (percent <= 0.35) return "Black pressing";
   return "Roughly balanced";
+}
+
+export function scoreToCentipawns(score: EngineScore | null): number | null {
+  if (!score) return null;
+  if (score.type === "cp") return score.value;
+  const mateSign = score.value >= 0 ? 1 : -1;
+  return mateSign * 10000;
+}
+
+const MOVE_QUALITY_RULES: Array<{
+  maxLoss: number;
+  label: MoveQualityLabel;
+  description: string;
+}> = [
+  { maxLoss: 20, label: "Best", description: "Top engine choice keeps the evaluation." },
+  { maxLoss: 80, label: "Good", description: "Solid move with only a slight drop in evaluation." },
+  { maxLoss: 200, label: "Inaccuracy", description: "A softer move that gives the opponent chances." },
+  { maxLoss: 400, label: "Mistake", description: "Significant drop; the position worsens noticeably." },
+  { maxLoss: Infinity, label: "Blunder", description: "Major error that swings the evaluation sharply." },
+];
+
+export function classifyMoveQuality({
+  previousScore,
+  currentScore,
+  mover,
+  previousFen,
+  currentFen,
+  forcedMove,
+}: {
+  previousScore: EngineScore | null;
+  currentScore: EngineScore | null;
+  mover: "white" | "black";
+  previousFen?: string;
+  currentFen?: string;
+  forcedMove?: boolean;
+}): MoveQuality | null {
+  if (forcedMove) {
+    return {
+      label: "Forced",
+      loss: 0,
+      description: "Only legal move available in the position.",
+    };
+  }
+
+  if (!currentScore) return null;
+
+  const moverLabel = mover === "white" ? "White" : "Black";
+
+  if (currentScore.type === "mate") {
+    if (currentScore.value === 0) {
+      const mateWinner = getMateWinner(currentScore, currentFen);
+      if (mateWinner === moverLabel) {
+        return {
+          label: "Best",
+          loss: 0,
+          description: "Clinical conversion: delivers checkmate.",
+        };
+      }
+      return {
+        label: "Blunder",
+        loss: Infinity,
+        description: "Allows checkmate on the board.",
+      };
+    }
+
+    const currentWinner = getMateWinner(currentScore, currentFen);
+    if (!currentWinner) return null;
+
+    const previousWinner =
+      previousScore?.type === "mate" ? getMateWinner(previousScore, previousFen) : undefined;
+
+    if (currentWinner === moverLabel) {
+      return {
+        label: "Best",
+        loss: 0,
+        description: "Keeps the forced mate sequence on track.",
+      };
+    }
+
+    if (previousWinner === currentWinner) {
+      return {
+        label: "Good",
+        loss: 0,
+        description: "Forced mate already on board; no better defense exists.",
+      };
+    }
+
+    return {
+      label: "Blunder",
+      loss: Infinity,
+      description: "Allows a forced mate to appear on the board.",
+    };
+  }
+
+  const prevCp = scoreToCentipawns(previousScore);
+  const currCp = scoreToCentipawns(currentScore);
+  if (prevCp == null || currCp == null) return null;
+  const factor = mover === "white" ? 1 : -1;
+  const prevPerspective = prevCp * factor;
+  const currPerspective = currCp * factor;
+  const loss = Math.max(0, prevPerspective - currPerspective);
+  const rule = MOVE_QUALITY_RULES.find((r) => loss <= r.maxLoss);
+  if (!rule) return null;
+  return {
+    label: rule.label,
+    loss,
+    description: rule.description,
+  };
 }

@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import Navbar from "../components/Navbar";
 import GameInputCard from "../components/review/GameInputCard";
 import ThemeSelectorModal from "../components/review/ThemeSelectorModal";
-import GameReviewHeader from "../components/review/GameReviewHeader";
 import BoardAnalysisCard from "../components/review/BoardAnalysisCard";
+import MoveQualityCard from "../components/review/MoveQualityCard";
 import MoveListCard, { type MovePair } from "../components/review/MoveListCard";
 import EngineAnalysisCard from "../components/review/EngineAnalysisCard";
 import type {
   BoardThemeKey,
+  BookMoveStatus,
+  BookPositionInfo,
   EngineEvaluation,
   EngineScore,
   GameAnalysisResponse,
   MoveEvalState,
+  MoveQuality,
   MoveSnapshot,
 } from "../types/review";
 import {
@@ -23,6 +26,7 @@ import {
   getEvalPercent,
   getMateWinner,
   mergeSampleEvaluations,
+  classifyMoveQuality,
 } from "../utils/reviewEngine";
 
 type View = "analysis" | "timeline" | "insights";
@@ -60,6 +64,7 @@ export default function ReviewPage() {
   const [timeline, setTimeline] = useState<MoveSnapshot[]>([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
   const [moveEvaluations, setMoveEvaluations] = useState<Record<number, MoveEvalState>>({});
+  const [bookStatusByPly, setBookStatusByPly] = useState<Record<number, BookMoveStatus | undefined>>({});
   const [lastEvaluationDisplay, setLastEvaluationDisplay] = useState<{
     evaluation: EngineEvaluation;
     fen?: string;
@@ -84,6 +89,7 @@ export default function ReviewPage() {
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [showBestMoveArrow, setShowBestMoveArrow] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
+  const bookCacheRef = useRef<Record<string, BookPositionInfo | null>>({});
 
   const initialFen = useMemo(() => new Chess().fen(), []);
   const startingSnapshot = useMemo<MoveSnapshot>(
@@ -93,6 +99,7 @@ export default function ReviewPage() {
       san: "start",
       color: "white",
       fen: initialFen,
+      uci: "",
     }),
     [initialFen]
   );
@@ -194,6 +201,32 @@ export default function ReviewPage() {
   const currentEvaluationState = currentMove
     ? moveEvaluations[currentMove.ply]
     : moveEvaluations[0];
+
+  const moveClassifications = useMemo<Record<number, MoveQuality | undefined>>(() => {
+    const map: Record<number, MoveQuality | undefined> = {};
+    timeline.forEach((move, index) => {
+      const prevSnapshot = index === 0 ? startingSnapshot : timeline[index - 1];
+      const prevEval = getEvaluationSnapshot(moveEvaluations[prevSnapshot.ply]);
+      const currEval = getEvaluationSnapshot(moveEvaluations[move.ply]);
+      if (!currEval) return;
+      const previousFen = index === 0 ? initialFen : prevSnapshot.fen;
+      const forcedMove = isForcedMove(previousFen);
+      const quality = classifyMoveQuality({
+        previousScore: prevEval?.score ?? null,
+        currentScore: currEval.score,
+        mover: move.color,
+        previousFen,
+        currentFen: move.fen,
+        forcedMove,
+      });
+      if (quality) {
+        map[move.ply] = quality;
+      }
+    });
+    return map;
+  }, [timeline, moveEvaluations, startingSnapshot, initialFen]);
+
+  const currentMoveClassification = currentMove ? moveClassifications[currentMove.ply] : undefined;
 
   useEffect(() => {
     if (currentEval?.status === "success" && currentMove) {
@@ -315,6 +348,8 @@ export default function ReviewPage() {
     setTimeline([]);
     setCurrentMoveIndex(-1);
     setMoveEvaluations({});
+    setBookStatusByPly({});
+    bookCacheRef.current = {};
     setLastEvaluationDisplay(null);
     setIsAutoPlaying(false);
     setPgnInput("");
@@ -345,6 +380,8 @@ export default function ReviewPage() {
       map[move.ply] = { status: "idle" };
     });
     setMoveEvaluations(map);
+    setBookStatusByPly({});
+    bookCacheRef.current = {};
     setLastEvaluationDisplay(null);
     setIsAutoPlaying(false);
     if (autoEvaluateFirst && moves.length) {
@@ -462,10 +499,10 @@ export default function ReviewPage() {
         handleSelectMove(Math.min(currentMoveIndex + 1, timeline.length - 1));
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
-        handleSelectMove(timeline.length - 1);
+        handleSelectMove(-1);
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
-        handleSelectMove(-1);
+        handleSelectMove(timeline.length - 1);
       }
     };
 
@@ -487,6 +524,30 @@ export default function ReviewPage() {
     setIsAutoPlaying(true);
   };
 
+  const fetchBookPosition = useCallback(
+    async (fen: string): Promise<BookPositionInfo | null> => {
+      if (!fen) return null;
+      if (fen in bookCacheRef.current) {
+        return bookCacheRef.current[fen];
+      }
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/review/book?fen=${encodeURIComponent(fen)}&moves=10`
+        );
+        if (!response.ok) {
+          throw new Error(`Book lookup failed (${response.status})`);
+        }
+        const payload = (await response.json()) as BookPositionInfo;
+        bookCacheRef.current[fen] = payload;
+        return payload;
+      } catch {
+        bookCacheRef.current[fen] = null;
+        return null;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     if (!analysisReady || isClearing) return;
     const hasLoading = Object.values(moveEvaluations).some((state) => state?.status === "loading");
@@ -503,6 +564,56 @@ export default function ReviewPage() {
       requestEvaluation(pendingMove);
     }
   }, [analysisReady, isClearing, moveEvaluations, requestEvaluation, startingSnapshot, timeline]);
+
+  useEffect(() => {
+    if (!analysisReady || !timeline.length) {
+      setBookStatusByPly({});
+      return;
+    }
+    let cancelled = false;
+    const determineBookMoves = async () => {
+      const updates: Record<number, BookMoveStatus> = {};
+      let prevFen = initialFen;
+      let exited = false;
+      for (let i = 0; i < timeline.length; i++) {
+        const move = timeline[i];
+        if (exited) {
+          updates[move.ply] = { inBook: false };
+          continue;
+        }
+        const prevPosition = await fetchBookPosition(prevFen);
+        if (cancelled) return;
+        const moveUci = move.uci || deriveUciFromSan(prevFen, move.san);
+        const match = prevPosition?.moves?.find((bm) => bm.uci === moveUci);
+        const currentPosition = await fetchBookPosition(move.fen);
+        if (cancelled) return;
+        const hasOpeningName = Boolean(currentPosition?.opening?.name);
+        if (!match || !hasOpeningName) {
+          updates[move.ply] = {
+            inBook: false,
+            eco: currentPosition?.opening?.eco ?? prevPosition?.opening?.eco,
+            opening: currentPosition?.opening?.name ?? prevPosition?.opening?.name,
+          };
+          exited = true;
+          continue;
+        }
+        updates[move.ply] = {
+          inBook: true,
+          eco: currentPosition?.opening?.eco ?? prevPosition?.opening?.eco,
+          opening: currentPosition?.opening?.name ?? prevPosition?.opening?.name,
+          moveStats: match,
+        };
+        prevFen = move.fen;
+      }
+      if (!cancelled) {
+        setBookStatusByPly((prev) => ({ ...prev, ...updates }));
+      }
+    };
+    determineBookMoves();
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisReady, timeline, initialFen, fetchBookPosition]);
 
   const handleInspectFromTimeline = (index: number) => {
     handleSelectMove(index);
@@ -528,8 +639,6 @@ export default function ReviewPage() {
       <Navbar />
       <div className="min-h-screen bg-gray-50 text-gray-800 px-6 py-24">
         <div className="max-w-6xl mx-auto space-y-10">
-          <GameReviewHeader analysisReady={analysisReady} onLoadNewPGN={handleStartNewReview} />
-
           {!analysisReady && (
             <div className="w-full max-w-3xl mx-auto">
               <GameInputCard
@@ -550,29 +659,51 @@ export default function ReviewPage() {
               key={analysisKey}
               className={`grid grid-cols-1 xl:grid-cols-[2fr_1fr] items-start gap-8 ${isClearing ? "fade-out" : "fade-in"}`}
             >
-              <BoardAnalysisCard
-                boardPosition={boardPosition}
-                boardWidth={boardSize}
-                boardOrientation={boardOrientation}
-                boardColors={BOARD_THEMES[boardTheme]}
-                evaluationPercent={evaluationPercent}
-                evaluationSummary={evaluationSummary}
-                currentEvaluationScore={currentEvaluationScore}
-                bestMoveArrows={bestMoveArrows}
-                timelineLength={timeline.length}
-                currentMoveIndex={currentMoveIndex}
-                atEnd={atEnd}
-                isAutoPlaying={isAutoPlaying}
-                showBestMoveArrow={showBestMoveArrow}
-                onSelectMove={handleSelectMove}
-                onToggleAutoPlay={handleToggleAutoPlay}
-                onFlipBoard={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
-                onToggleBestMoveArrow={() => setShowBestMoveArrow((prev) => !prev)}
-                onOpenThemeModal={() => setIsThemeModalOpen(true)}
-              />
+              <div className="flex flex-col gap-4">
+                <BoardAnalysisCard
+                  boardPosition={boardPosition}
+                  boardWidth={boardSize}
+                  boardOrientation={boardOrientation}
+                  boardColors={BOARD_THEMES[boardTheme]}
+                  evaluationPercent={evaluationPercent}
+                  evaluationSummary={evaluationSummary}
+                  currentEvaluationScore={currentEvaluationScore}
+                  bestMoveArrows={bestMoveArrows}
+                  timelineLength={timeline.length}
+                  currentMoveIndex={currentMoveIndex}
+                  atEnd={atEnd}
+                  isAutoPlaying={isAutoPlaying}
+                  showBestMoveArrow={showBestMoveArrow}
+                  onSelectMove={handleSelectMove}
+                  onToggleAutoPlay={handleToggleAutoPlay}
+                  onFlipBoard={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
+                  onToggleBestMoveArrow={() => setShowBestMoveArrow((prev) => !prev)}
+                  onOpenThemeModal={() => setIsThemeModalOpen(true)}
+                />
+                <div>
+                  <button
+                    onClick={handleStartNewReview}
+                    className="w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg border border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50 transition"
+                  >
+                    Load New PGN
+                  </button>
+                </div>
+              </div>
 
               <div className="flex flex-col gap-6 self-start">
-                <MoveListCard movePairs={movePairs} currentMoveIndex={currentMoveIndex} onSelectMove={handleSelectMove} />
+                <MoveQualityCard
+                  move={currentMove}
+                  classification={currentMoveClassification}
+                  awaitingEvaluation={Boolean(currentMove && !currentMoveClassification && !bookStatusByPly[currentMove.ply])}
+                  bookStatus={currentMove ? bookStatusByPly[currentMove.ply] : undefined}
+                />
+                <MoveListCard
+                  movePairs={movePairs}
+                  currentMoveIndex={currentMoveIndex}
+                  onSelectMove={handleSelectMove}
+                  moveClassifications={moveClassifications}
+                  bookStatuses={bookStatusByPly}
+                />
 
                 <EngineAnalysisCard
                   engineStatus={engineStatus}
@@ -630,6 +761,34 @@ function getMovePhase(moveNumber: number): "Opening" | "Middlegame" | "Endgame" 
   if (moveNumber <= 10) return "Opening";
   if (moveNumber <= 30) return "Middlegame";
   return "Endgame";
+}
+
+function getEvaluationSnapshot(state?: MoveEvalState): EngineEvaluation | undefined {
+  if (!state) return undefined;
+  if (state.status === "success") return state.evaluation;
+  if (state.status === "loading" && state.previous) return state.previous;
+  return undefined;
+}
+
+function isForcedMove(fen: string): boolean {
+  try {
+    const chess = new Chess(fen);
+    return chess.moves().length <= 1;
+  } catch {
+    return false;
+  }
+}
+
+function deriveUciFromSan(fen: string, san: string): string | undefined {
+  try {
+    const chess = new Chess(fen);
+    const candidates = chess.moves({ verbose: true });
+    const match = candidates.find((move) => move.san === san);
+    if (!match) return undefined;
+    return `${match.from}${match.to}${match.promotion ?? ""}`;
+  } catch {
+    return undefined;
+  }
 }
 
 const BOARD_THEMES: Record<
