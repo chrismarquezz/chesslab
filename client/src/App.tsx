@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import PlayerInput from "./components/PlayerInput";
 import { useUser } from "./context/UserContext";
+import { Chess } from "chess.js";
 
 const DRAW_RESULTS = new Set(["stalemate", "agreed", "repetition", "timevsinsufficient", "insufficient", "50move"]);
 
@@ -308,6 +309,13 @@ function formatTimeAgo(epochSeconds?: number) {
 
 function getMoveCountFromPgn(pgn?: string) {
   if (!pgn) return null;
-  const matches = pgn.match(/\b\d+\./g);
-  return matches ? matches.length : null;
+  try {
+    const chess = new Chess();
+    chess.loadPgn(pgn);
+    const plyCount = chess.history().length;
+    const moveCount = Math.ceil(plyCount / 2);
+    return moveCount || null;
+  } catch {
+    return null;
+  }
 }
