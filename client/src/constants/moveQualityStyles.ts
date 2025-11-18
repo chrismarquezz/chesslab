@@ -29,10 +29,10 @@ export const MOVE_QUALITY_STYLES: Record<
     background: "bg-orange-50",
   },
   Blunder: {
-    badge: "bg-red-100 text-red-700",
-    text: "text-red-700",
-    border: "border-red-200",
-    background: "bg-red-50",
+    badge: "bg-red-200 text-red-900",
+    text: "text-red-900",
+    border: "border-red-300",
+    background: "bg-red-100",
   },
   Forced: {
     badge: "bg-gray-200 text-gray-700",
@@ -41,9 +41,9 @@ export const MOVE_QUALITY_STYLES: Record<
     background: "bg-gray-50",
   },
   Miss: {
-    badge: "bg-purple-100 text-purple-700",
-    text: "text-purple-700",
-    border: "border-purple-200",
-    background: "bg-purple-50",
+    badge: "bg-rose-100 text-rose-600",
+    text: "text-rose-600",
+    border: "border-rose-200",
+    background: "bg-rose-50",
   },
 };
