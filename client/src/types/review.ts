@@ -52,7 +52,7 @@ export interface GameAnalysisResponse {
 
 export type Arrow = [Square, Square];
 
-export type MoveQualityLabel = "Best" | "Good" | "Inaccuracy" | "Mistake" | "Blunder" | "Forced";
+export type MoveQualityLabel = "Best" | "Good" | "Inaccuracy" | "Mistake" | "Blunder" | "Forced" | "Miss";
 
 export interface MoveQuality {
   label: MoveQualityLabel;

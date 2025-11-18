@@ -231,8 +231,30 @@ export function classifyMoveQuality({
   if (!currentScore) return null;
 
   const moverLabel = mover === "white" ? "White" : "Black";
+  const opponentLabel = moverLabel === "White" ? "Black" : "White";
   const prevCpScore = scoreToCentipawns(previousScore);
   const currCpScore = scoreToCentipawns(currentScore);
+  const previousMateWinner =
+    previousScore?.type === "mate" ? getMateWinner(previousScore, previousFen) : undefined;
+  const currentMateWinner =
+    currentScore?.type === "mate" ? getMateWinner(currentScore, currentFen) : undefined;
+
+  if (previousMateWinner === moverLabel && currentMateWinner !== moverLabel) {
+    if (currentMateWinner === opponentLabel) {
+      return {
+        label: "Blunder",
+        loss: Infinity,
+        description: "Turns a winning mate into a forced mate for the opponent.",
+      };
+    }
+    if (currentScore.type !== "mate" || !currentMateWinner) {
+      return {
+        label: "Miss",
+        loss: Infinity,
+        description: "Misses a forced mate opportunity.",
+      };
+    }
+  }
 
 
   if (currentScore.type === "mate") {
@@ -252,13 +274,9 @@ export function classifyMoveQuality({
       };
     }
 
-    const currentWinner = getMateWinner(currentScore, currentFen);
-    if (!currentWinner) return null;
+    if (!currentMateWinner) return null;
 
-    const previousWinner =
-      previousScore?.type === "mate" ? getMateWinner(previousScore, previousFen) : undefined;
-
-    if (currentWinner === moverLabel) {
+    if (currentMateWinner === moverLabel) {
       return {
         label: "Best",
         loss: 0,
@@ -266,7 +284,7 @@ export function classifyMoveQuality({
       };
     }
 
-    if (previousWinner === currentWinner) {
+    if (previousMateWinner === currentMateWinner) {
       return {
         label: "Good",
         loss: 0,
@@ -274,11 +292,14 @@ export function classifyMoveQuality({
       };
     }
 
-    return {
-      label: "Blunder",
-      loss: Infinity,
-      description: "Allows a forced mate to appear on the board.",
-    };
+    if (currentMateWinner === opponentLabel) {
+      return {
+        label: "Blunder",
+        loss: Infinity,
+        description: "Allows a forced mate to appear on the board.",
+      };
+    }
+    return null;
   }
 
   const prevCp = prevCpScore;

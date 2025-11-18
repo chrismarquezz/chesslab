@@ -128,10 +128,8 @@ export default function App() {
               <div className="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                 {displayedGames.map((game) => {
                   const {
-                    opponentName,
                     badgeClass,
                     resultLabel,
-                    timeLabel,
                     timeShortLabel,
                     relativeTimeLabel,
                     moveCount,
@@ -165,7 +163,7 @@ export default function App() {
                         </div>
                         <button
                           className="inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-700 font-semibold px-4 py-2 hover:bg-gray-50 transition"
-                          onClick={() => handleAnalyzeGame(game, timeLabel)}
+                          onClick={() => handleAnalyzeGame(game)}
                         >
                           Analyze
                         </button>
@@ -241,47 +239,25 @@ function summarizeGame(game: any, username: string) {
   const lower = username.toLowerCase();
   const isWhite = game.white?.username?.toLowerCase() === lower;
   const userSide = isWhite ? game.white : game.black;
-  const opponent = isWhite ? game.black : game.white;
   const result = (userSide?.result ?? "").toLowerCase();
-  let userResult = "Loss";
   let badgeClass = "bg-rose-100 text-rose-700";
   let resultLabel = "Loss";
 
   if (result === "win") {
-    userResult = "Win";
     resultLabel = "Win";
     badgeClass = "bg-emerald-100 text-emerald-700";
   } else if (DRAW_RESULTS.has(result)) {
-    userResult = "Draw";
     resultLabel = "Draw";
     badgeClass = "bg-gray-200 text-gray-800";
   }
 
-  const timeLabel = formatTimeControl(game.time_class, game.time_control);
-  const timeShortLabel = formatShortTimeControl(game.time_control);
-  const relativeTimeLabel = formatTimeAgo(game.end_time);
-  const moveCount = getMoveCountFromPgn(game.pgn);
-
   return {
-    opponentName: opponent?.username ?? "Unknown",
     badgeClass,
     resultLabel,
-    timeLabel,
-    timeShortLabel,
-    relativeTimeLabel,
-    moveCount,
+    timeShortLabel: formatShortTimeControl(game.time_control),
+    relativeTimeLabel: formatTimeAgo(game.end_time),
+    moveCount: getMoveCountFromPgn(game.pgn),
   };
-}
-
-function formatTimeControl(timeClass?: string, control?: string) {
-  if (!control) return timeClass ? capitalize(timeClass) : "Unknown";
-  const [baseStr, incStr] = control.split("+");
-  const baseSeconds = Number(baseStr) || 0;
-  const baseMinutes = baseSeconds >= 60 ? Math.floor(baseSeconds / 60) : 0;
-  const baseLabel = baseMinutes ? `${baseMinutes}m` : `${baseSeconds}s`;
-  const increment = incStr ? Number(incStr) : 0;
-  const incLabel = increment ? ` + ${increment}s` : "";
-  return `${timeClass ? capitalize(timeClass) : "Live"} (${baseLabel}${incLabel})`;
 }
 
 function formatShortTimeControl(control?: string) {
@@ -291,11 +267,6 @@ function formatShortTimeControl(control?: string) {
   const increment = incStr ? Number(incStr) : 0;
   const baseValue = baseSeconds >= 60 && baseSeconds % 60 === 0 ? baseSeconds / 60 : baseSeconds;
   return `${baseValue} + ${increment}`;
-}
-
-function capitalize(value?: string) {
-  if (!value) return "";
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function formatTimeAgo(epochSeconds?: number) {

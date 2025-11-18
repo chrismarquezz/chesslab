@@ -486,7 +486,7 @@ export default function ReviewPage() {
     }
   }, [analysisReady, resetReviewState]);
 
-  const bootstrapTimeline = useCallback((moves: MoveSnapshot[], autoEvaluateFirst = false) => {
+  const bootstrapTimeline = useCallback((moves: MoveSnapshot[]) => {
     setTimeline(moves);
     setCurrentMoveIndex(moves.length ? 0 : -1);
     const map: Record<number, MoveEvalState> = {};
@@ -498,10 +498,7 @@ export default function ReviewPage() {
     bookCacheRef.current = {};
     setLastEvaluationDisplay(null);
     setIsAutoPlaying(false);
-    if (autoEvaluateFirst && moves.length) {
-      requestEvaluation(moves[0]);
-    }
-  }, [requestEvaluation]);
+  }, []);
 
   const runAnalysis = useCallback(
     async (rawPgn: string) => {
@@ -550,7 +547,7 @@ export default function ReviewPage() {
         }
 
         const timelineResult = payload.timeline ?? parsedMoves;
-        bootstrapTimeline(timelineResult, true);
+        bootstrapTimeline(timelineResult, false);
         setMoveEvaluations((prev) => mergeSampleEvaluations(prev, payload.samples));
         await evaluateEntireTimeline(timelineResult, runId);
         if (evaluationRunIdRef.current === runId) {

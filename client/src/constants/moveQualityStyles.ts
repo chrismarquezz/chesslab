@@ -40,4 +40,10 @@ export const MOVE_QUALITY_STYLES: Record<
     border: "border-gray-200",
     background: "bg-gray-50",
   },
+  Miss: {
+    badge: "bg-purple-100 text-purple-700",
+    text: "text-purple-700",
+    border: "border-purple-200",
+    background: "bg-purple-50",
+  },
 };
