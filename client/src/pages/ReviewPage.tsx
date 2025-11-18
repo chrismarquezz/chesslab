@@ -37,6 +37,11 @@ const REVIEW_STORAGE_KEY = "chesslytics-review-state";
 const PLAYER_NAMES_STORAGE_KEY = "chesslytics-player-names";
 const PLAYER_CLOCK_STORAGE_KEY = "chesslytics-player-clock";
 
+interface GameResultInfo {
+  result: string;
+  termination?: string;
+}
+
 interface PersistedReviewState {
   pgnInput: string;
   timeline: MoveSnapshot[];
@@ -113,6 +118,7 @@ export default function ReviewPage() {
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [showBestMoveArrow, setShowBestMoveArrow] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
+  const [gameResult, setGameResult] = useState<GameResultInfo | null>(null);
   const bookCacheRef = useRef<Record<string, BookPositionInfo | null>>({});
   const evaluationRunIdRef = useRef(0);
   const location = useLocation();
@@ -167,6 +173,9 @@ export default function ReviewPage() {
       setLastEvaluationDisplay(stored.lastEvaluationDisplay ?? null);
       setBoardOrientation(stored.boardOrientation ?? "white");
       setShowBestMoveArrow(stored.showBestMoveArrow ?? true);
+      if (stored.pgnInput) {
+        setGameResult(getGameResultFromPgn(stored.pgnInput));
+      }
       if (stored.analysisReady && stored.timeline?.length) {
         setAnalysisKey((prev) => prev + 1);
       }
@@ -351,11 +360,18 @@ export default function ReviewPage() {
 
   const stableEvaluation = displayedEvaluation || lastEvaluationDisplay || null;
 
+  const drawInfo =
+    gameResult?.result === "1/2-1/2" && timeline.length > 0 && currentMoveIndex === timeline.length - 1
+      ? { result: gameResult.result, reason: gameResult.termination }
+      : undefined;
+
+  const isDrawnPosition = Boolean(drawInfo);
+
   const bestMoveArrows = useMemo(() => {
-    if (!showBestMoveArrow || !displayedEvaluation) return [] as Array<[Square, Square]>;
+    if (!showBestMoveArrow || !displayedEvaluation || isDrawnPosition) return [] as Array<[Square, Square]>;
     const arrow = getArrowFromBestMove(displayedEvaluation.evaluation.bestMove);
     return arrow ? [arrow] : [];
-  }, [showBestMoveArrow, displayedEvaluation]);
+  }, [showBestMoveArrow, displayedEvaluation, isDrawnPosition]);
   const currentEvaluationScore = displayedEvaluation?.evaluation.score ?? null;
   const currentEvaluationMateWinner = displayedEvaluation
     ? getMateWinner(currentEvaluationScore, displayedEvaluation.fen)
@@ -469,6 +485,7 @@ export default function ReviewPage() {
     setPgnInput("");
     setAnalysisError(null);
     setInputError(null);
+    setGameResult(null);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(REVIEW_STORAGE_KEY);
     }
@@ -527,6 +544,8 @@ export default function ReviewPage() {
         return;
       }
 
+      const metadata = getGameResultFromPgn(trimmed);
+      setGameResult(metadata);
       const runId = Date.now();
       evaluationRunIdRef.current = runId;
       setPgnInput(trimmed);
@@ -772,7 +791,6 @@ export default function ReviewPage() {
   // }, [timeline, moveEvaluations, reviewedPlies]);
 
   const atEnd = currentMoveIndex >= timeline.length - 1;
-
   return (
     <>
       <Navbar />
@@ -859,6 +877,7 @@ export default function ReviewPage() {
                     engineStatus={engineStatus}
                     engineError={engineError}
                     stableEvaluation={stableEvaluation}
+                    drawInfo={drawInfo}
                   />
                 </div>
               </div>
@@ -905,6 +924,7 @@ export default function ReviewPage() {
                 engineStatus={engineStatus}
                 engineError={engineError}
                 stableEvaluation={stableEvaluation}
+                drawInfo={drawInfo}
               />
               </div>
             </section>
@@ -992,6 +1012,19 @@ function getPlayerNamesFromPgn(pgn: string): { white: string; black: string } {
   return {
     white: whiteMatch?.[1]?.trim() || "White",
     black: blackMatch?.[1]?.trim() || "Black",
+  };
+}
+
+function getGameResultFromPgn(pgn: string): GameResultInfo | null {
+  if (!pgn) return null;
+  const resultMatch = pgn.match(/\[Result\s+"([^"]+)"\]/i);
+  if (!resultMatch) return null;
+  const result = resultMatch[1]?.trim();
+  if (!result || result === "*") return null;
+  const terminationMatch = pgn.match(/\[Termination\s+"([^"]+)"\]/i);
+  return {
+    result,
+    termination: terminationMatch?.[1],
   };
 }
 

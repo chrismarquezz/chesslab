@@ -5,20 +5,26 @@ interface EngineAnalysisCardProps {
   engineStatus?: MoveEvalState["status"];
   engineError: string | null;
   stableEvaluation: { evaluation: EngineEvaluation; fen?: string } | null;
+  drawInfo?: { result: string; reason?: string };
 }
 
 export default function EngineAnalysisCard({
   engineStatus,
   engineError,
   stableEvaluation,
+  drawInfo,
 }: EngineAnalysisCardProps) {
+  const showDraw = Boolean(drawInfo && drawInfo.result === "1/2-1/2");
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow hover:shadow-2xl transition-all duration-300 p-5 flex flex-col h-[360px]">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-800">Engine</h2>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {engineStatus === "error" && !stableEvaluation ? (
+        {showDraw ? (
+          <DrawSummary reason={drawInfo?.reason} />
+        ) : engineStatus === "error" && !stableEvaluation ? (
           <p className="text-sm text-red-500">Engine error: {engineError || "Unable to evaluate position."}</p>
         ) : !stableEvaluation ? (
           <p className="text-sm text-gray-500">Analyzing current position…</p>
@@ -79,6 +85,15 @@ function EngineLines({ evaluation, fen }: { evaluation: EngineEvaluation; fen?: 
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function DrawSummary({ reason }: { reason?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center h-full gap-2">
+      <p className="text-3xl font-bold text-gray-900">½-½</p>
+      <p className="text-sm text-gray-500">{reason ?? "Game drawn"}</p>
     </div>
   );
 }
