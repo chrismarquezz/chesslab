@@ -5,22 +5,17 @@ interface EngineAnalysisCardProps {
   engineStatus?: MoveEvalState["status"];
   engineError: string | null;
   stableEvaluation: { evaluation: EngineEvaluation; fen?: string } | null;
-  currentMoveNumber?: number;
 }
 
 export default function EngineAnalysisCard({
   engineStatus,
   engineError,
   stableEvaluation,
-  currentMoveNumber,
 }: EngineAnalysisCardProps) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow hover:shadow-2xl transition-all duration-300 p-5 flex flex-col h-[360px]">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-800">Engine</h2>
-        <span className="text-xs uppercase tracking-wide text-gray-500">
-          {currentMoveNumber ? `Move ${currentMoveNumber}` : "Initial position"}
-        </span>
       </div>
       <div className="flex-1 overflow-y-auto">
         {engineStatus === "error" && !stableEvaluation ? (
@@ -75,7 +70,6 @@ function EngineLines({ evaluation, fen }: { evaluation: EngineEvaluation; fen?: 
             className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 p-3"
           >
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-500">#{index + 1}</p>
               <p className="text-lg font-semibold text-gray-900">{moveSan}</p>
               {mainLine && <p className="text-xs text-gray-500">{mainLine}</p>}
             </div>

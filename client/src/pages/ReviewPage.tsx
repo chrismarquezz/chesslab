@@ -859,7 +859,6 @@ export default function ReviewPage() {
                     engineStatus={engineStatus}
                     engineError={engineError}
                     stableEvaluation={stableEvaluation}
-                    currentMoveNumber={currentMove?.moveNumber}
                   />
                 </div>
               </div>
@@ -902,12 +901,11 @@ export default function ReviewPage() {
                   awaitingEvaluation={Boolean(currentMove && !currentMoveClassification && !bookStatusByPly[currentMove.ply])}
                   bookStatus={currentMove ? bookStatusByPly[currentMove.ply] : undefined}
                 />
-                <EngineAnalysisCard
-                  engineStatus={engineStatus}
-                  engineError={engineError}
-                  stableEvaluation={stableEvaluation}
-                  currentMoveNumber={currentMove?.moveNumber}
-                />
+              <EngineAnalysisCard
+                engineStatus={engineStatus}
+                engineError={engineError}
+                stableEvaluation={stableEvaluation}
+              />
               </div>
             </section>
           )}

@@ -17,6 +17,8 @@ export default function App() {
     stats,
     userDataLoading,
     userDataError,
+    refreshGames,
+    fetchUserData,
   } = useUser();
   const navigate = useNavigate();
   const [pendingUsername, setPendingUsername] = useState(username);
@@ -55,6 +57,13 @@ export default function App() {
     setManualError(null);
     navigate("/review", { state: { pgn: trimmed } });
     setIsManualModalOpen(false);
+  };
+
+  const handleRefresh = () => {
+    refreshGames();
+    if (username.trim()) {
+      void fetchUserData(username);
+    }
   };
 
   const displayedGames = useMemo(() => games.slice(0, visibleGamesCount), [games, visibleGamesCount]);
@@ -110,6 +119,13 @@ export default function App() {
             </div>
             <div className="flex items-center gap-3 flex-wrap justify-between md:justify-end">
               {gamesError && <p className="text-sm text-red-500">{gamesError}</p>}
+              <button
+                onClick={handleRefresh}
+                className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                disabled={gamesLoading || userDataLoading}
+              >
+                {gamesLoading ? "Refreshing…" : "Refresh"}
+              </button>
               <button
                 onClick={() => setIsManualModalOpen(true)}
                 className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
