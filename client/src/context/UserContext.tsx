@@ -26,7 +26,7 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-const USERNAME_STORAGE_KEY = "chesslytics-username";
+const USERNAME_STORAGE_KEY = "chesslab-username";
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [username, setUsernameState] = useState(() => {
@@ -59,47 +59,35 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const fetchGames = useCallback(async () => {
-    if (!username.trim()) {
-      setGames([]);
-      setGamesError(null);
-      setGamesLoading(false);
-      return;
-    }
-
-    setGamesLoading(true);
-    setGamesError(null);
-    try {
-      const data = await getRecentGames(username);
-      const sorted = [...data].sort((a, b) => (b.end_time ?? 0) - (a.end_time ?? 0));
-      setGames(sorted);
-    } catch (err) {
-      console.error("Failed to fetch recent games:", err);
-      setGames([]);
-      setGamesError("Could not load recent games.");
-    } finally {
-      setGamesLoading(false);
-    }
-  }, [username]);
-
-  const refreshGames = useCallback(() => {
-    void fetchGames();
-  }, [fetchGames]);
-
   const fetchUserData = useCallback(
     async (usernameOverride?: string) => {
       const target = (usernameOverride ?? username).trim();
-      if (!target) return;
+      if (!target) {
+        setProfile(null);
+        setStats(null);
+        setTrendHistory({
+          blitz: [],
+          rapid: [],
+          bullet: [],
+        });
+        setGames([]);
+        setGamesError(null);
+        setUserDataError(null);
+        return;
+      }
 
       setUserDataLoading(true);
+      setGamesLoading(true);
       setUserDataError(null);
+      setGamesError(null);
       try {
-        const [profileData, statsData, blitzHistory, rapidHistory, bulletHistory] = await Promise.all([
+        const [profileData, statsData, blitzHistory, rapidHistory, bulletHistory, gamesData] = await Promise.all([
           getProfile(target),
           getStats(target),
           getRatingHistory(target, "blitz"),
           getRatingHistory(target, "rapid"),
           getRatingHistory(target, "bullet"),
+          getRecentGames(target),
         ]);
 
         setProfile(profileData);
@@ -109,19 +97,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
           rapid: rapidHistory,
           bullet: bulletHistory,
         });
+        setGames(gamesData);
       } catch (err) {
         console.error("Failed to fetch player data:", err);
         setUserDataError("Could not fetch data. Please try again.");
+        setGames([]);
+        setGamesError("Could not load recent games.");
       } finally {
         setUserDataLoading(false);
+        setGamesLoading(false);
       }
     },
     [username]
   );
 
-  useEffect(() => {
-    void fetchGames();
-  }, [fetchGames]);
+  const refreshGames = useCallback(() => {
+    void fetchUserData(username);
+  }, [fetchUserData, username]);
 
   useEffect(() => {
     if (username.trim()) {

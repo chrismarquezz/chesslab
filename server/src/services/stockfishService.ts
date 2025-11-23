@@ -42,6 +42,14 @@ export interface GameAnalysis {
   samples: Array<MoveSnapshot & { evaluation: EngineEvaluation | null; error?: string }>;
 }
 
+interface EngineStreamOptions {
+  fen: string;
+  depth: number;
+  onUpdate: (evaluation: EngineEvaluation) => void;
+  onError: (error: Error) => void;
+  onComplete: () => void;
+}
+
 export async function analyzeGameWithEngine(pgn: string, sampleCount = 5, depth = 14): Promise<GameAnalysis> {
   const chess = new Chess();
   try {
@@ -229,6 +237,163 @@ export function evaluateFen(fen: string, depth = 14): Promise<EngineEvaluation> 
       reject(err);
     });
   });
+}
+
+export function streamEvaluateFen(options: EngineStreamOptions): () => void {
+  const { fen, depth, onUpdate, onError, onComplete } = options;
+  const engine = spawn(ENGINE_PATH, [], { stdio: "pipe" });
+  const waiters: Array<{ token: string; resolve: () => void }> = [];
+  let timer: NodeJS.Timeout | null = null;
+  let lastInfo: ParsedInfo = {
+    score: null,
+    depth,
+    pv: [],
+  };
+  const multiPv: Record<number, EngineLine> = {};
+  let lastEmittedDepth = 0;
+  let finished = false;
+
+  const fulfillWaiters = (text: string) => {
+    for (let i = waiters.length - 1; i >= 0; i--) {
+      const waiter = waiters[i];
+      if (text.includes(waiter.token)) {
+        waiter.resolve();
+        waiters.splice(i, 1);
+      }
+    }
+  };
+
+  const waitForToken = (token: string) =>
+    new Promise<void>((resolveToken) => {
+      waiters.push({ token, resolve: resolveToken });
+    });
+
+  const emitUpdate = () => {
+    const sortedLines = Object.keys(multiPv)
+      .map((key) => ({
+        order: Number(key),
+        line: multiPv[Number(key)],
+      }))
+      .filter(({ line }) => Boolean(line?.move))
+      .sort((a, b) => a.order - b.order)
+      .map(({ line }) => line as EngineLine)
+      .slice(0, 3);
+
+    const primaryLine = sortedLines[0];
+    const evaluation = normalizeEvaluationForFen(
+      {
+        bestMove: primaryLine?.move || lastInfo.pv?.[0] || "",
+        score: primaryLine?.score ?? lastInfo.score ?? null,
+        depth: lastInfo.depth ?? depth,
+        pv: primaryLine?.pv ?? lastInfo.pv ?? [],
+        lines: sortedLines.length
+          ? sortedLines
+          : lastInfo.pv && lastInfo.pv.length
+            ? [
+                {
+                  move: lastInfo.pv[0],
+                  score: lastInfo.score ?? null,
+                  pv: lastInfo.pv,
+                },
+              ]
+            : [],
+        raw: [],
+      },
+      fen
+    );
+    try {
+      onUpdate(evaluation);
+    } catch (err) {
+      console.error("Emit update failed:", err);
+    }
+  };
+
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    engine.stdout?.off("data", handleData);
+    engine.stderr?.off("data", stderrLogger);
+    engine.off("error", handleError);
+    engine.stdin?.end();
+    engine.kill();
+    if (timer) clearTimeout(timer);
+  };
+
+  const handleData = (chunk: Buffer) => {
+    const text = chunk.toString();
+    fulfillWaiters(text);
+    text.split(/\r?\n/).forEach((line) => {
+      if (!line) return;
+      if (line.startsWith("info")) {
+        const parsed = parseInfo(line);
+        lastInfo = { ...lastInfo, ...parsed };
+        if (parsed.pv && parsed.pv.length > 0) {
+          const lane = parsed.multipv ?? 1;
+          multiPv[lane] = {
+            move: parsed.pv[0],
+            score: parsed.score ?? multiPv[lane]?.score ?? null,
+            pv: parsed.pv,
+          };
+        }
+        const depthValue = parsed.depth ?? lastInfo.depth ?? 0;
+        if (depthValue > lastEmittedDepth && (parsed.multipv ?? 1) === 1 && (parsed.pv?.length ?? 0) > 0) {
+          lastEmittedDepth = depthValue;
+          emitUpdate();
+        }
+      } else if (line.startsWith("bestmove")) {
+        emitUpdate();
+        cleanup();
+        try {
+          onComplete();
+        } catch (err) {
+          console.error("Stream completion handler failed:", err);
+        }
+      }
+    });
+  };
+
+  const handleError = (error: Error) => {
+    cleanup();
+    onError(error);
+  };
+
+  const stderrLogger = (chunk: Buffer) => {
+    console.warn("[Stockfish stderr]", chunk.toString());
+  };
+
+  engine.stdout?.on("data", handleData);
+  engine.stderr?.on("data", stderrLogger);
+  engine.on("error", handleError);
+
+  const send = (command: string) => {
+    engine.stdin?.write(`${command}\n`);
+  };
+
+  const commandAndWait = async (command: string, token: string) => {
+    send(command);
+    await waitForToken(token);
+  };
+
+  const run = async () => {
+    await commandAndWait("uci", "uciok");
+    await commandAndWait("isready", "readyok");
+    send("setoption name MultiPV value 3");
+    await commandAndWait("isready", "readyok");
+    send(`position fen ${fen}`);
+    send(`go depth ${depth}`);
+  };
+
+  timer = setTimeout(() => {
+    cleanup();
+    onError(new Error("Stockfish stream timed out"));
+  }, ANALYSIS_TIMEOUT_MS * 2);
+
+  run().catch((err) => {
+    cleanup();
+    onError(err);
+  });
+
+  return cleanup;
 }
 
 type ParsedInfo = Partial<EngineEvaluation> & { multipv?: number };

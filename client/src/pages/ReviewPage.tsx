@@ -33,9 +33,9 @@ import {
 type View = "analysis" | "timeline" | "insights";
 
 const API_BASE_URL = import.meta.env.VITE_SERVER_URL ?? "http://localhost:5100";
-const REVIEW_STORAGE_KEY = "chesslytics-review-state";
-const PLAYER_NAMES_STORAGE_KEY = "chesslytics-player-names";
-const PLAYER_CLOCK_STORAGE_KEY = "chesslytics-player-clock";
+const REVIEW_STORAGE_KEY = "chesslab-review-state";
+const PLAYER_NAMES_STORAGE_KEY = "chesslab-player-names";
+const PLAYER_CLOCK_STORAGE_KEY = "chesslab-player-clock";
 
 interface GameResultInfo {
   result: string;
@@ -107,7 +107,7 @@ export default function ReviewPage() {
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [boardTheme, setBoardTheme] = useState<BoardThemeKey>(() => {
     if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("chesslytics-theme") as BoardThemeKey | null;
+      const stored = window.localStorage.getItem("chesslab-theme") as BoardThemeKey | null;
       if (stored && stored in BOARD_THEMES) {
         return stored;
       }
@@ -120,7 +120,7 @@ export default function ReviewPage() {
   const [isClearing, setIsClearing] = useState(false);
   const [gameResult, setGameResult] = useState<GameResultInfo | null>(null);
   const bookCacheRef = useRef<Record<string, BookPositionInfo | null>>({});
-  const evaluationRunIdRef = useRef(0);
+  const moveEvalSourcesRef = useRef<Record<number, EventSource | null>>({});
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -150,7 +150,7 @@ export default function ReviewPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("chesslytics-theme", boardTheme);
+    window.localStorage.setItem("chesslab-theme", boardTheme);
   }, [boardTheme]);
 
   useEffect(() => {
@@ -389,89 +389,67 @@ export default function ReviewPage() {
     setPgnInput(SAMPLE_PGN.trim());
   };
 
-  const requestEvaluation = useCallback(async (move: MoveSnapshot) => {
-    setMoveEvaluations((prev) => {
-      const prevState = prev[move.ply];
-      const previousEvaluation =
-        prevState?.status === "success"
-          ? prevState.evaluation
-          : prevState?.status === "loading"
-            ? prevState.previous
-            : undefined;
-      return {
-        ...prev,
-        [move.ply]: { status: "loading", previous: previousEvaluation },
-      };
-    });
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/review/evaluate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fen: move.fen, depth: 16 }),
+  const requestEvaluation = useCallback(
+    (move: MoveSnapshot) => {
+      if (typeof window === "undefined") return;
+      const url = `${API_BASE_URL}/api/review/evaluate/stream?fen=${encodeURIComponent(move.fen)}&depth=22`;
+      moveEvalSourcesRef.current[move.ply]?.close();
+      const source = new EventSource(url);
+      moveEvalSourcesRef.current[move.ply] = source;
+      setMoveEvaluations((prev) => {
+        const prevState = prev[move.ply];
+        const previousEvaluation =
+          prevState?.status === "success"
+            ? prevState.evaluation
+            : prevState?.status === "loading"
+              ? prevState.previous
+              : undefined;
+        return {
+          ...prev,
+          [move.ply]: { status: "loading", previous: previousEvaluation },
+        };
       });
-      const payload: EngineEvaluation | { error: string } = await response.json();
-      if (!response.ok || "error" in payload) {
-        throw new Error("error" in payload ? payload.error : "Failed to evaluate position");
-      }
-      setMoveEvaluations((prev) => ({
-        ...prev,
-        [move.ply]: { status: "success", evaluation: payload },
-      }));
-    } catch (err) {
-      setMoveEvaluations((prev) => ({
-        ...prev,
-        [move.ply]: { status: "error", error: getErrorMessage(err, "Engine error") },
-      }));
-    }
-  }, []);
-
-  const evaluateEntireTimeline = useCallback(
-    async (moves: MoveSnapshot[], runId: number) => {
-      const queue = [startingSnapshot, ...moves];
-      for (const move of queue) {
-        if (evaluationRunIdRef.current !== runId) break;
-        setMoveEvaluations((prev) => {
-          const prevState = prev[move.ply];
-          const previousEvaluation =
-            prevState?.status === "success"
-              ? prevState.evaluation
-              : prevState?.status === "loading"
-                ? prevState.previous
-                : undefined;
-          return {
-            ...prev,
-            [move.ply]: { status: "loading", previous: previousEvaluation },
-          };
-        });
+      source.onmessage = (event) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/review/evaluate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fen: move.fen, depth: 16 }),
-          });
-          const payload: EngineEvaluation | { error: string } = await response.json();
-          if (!response.ok || "error" in payload) {
-            throw new Error("error" in payload ? payload.error : "Failed to evaluate position");
+          const payload = JSON.parse(event.data) as { evaluation?: EngineEvaluation; done?: boolean; error?: string };
+          if (payload.error) {
+            setMoveEvaluations((prev) => ({
+              ...prev,
+              [move.ply]: { status: "error", error: payload.error || "Engine stream error" },
+            }));
+            source.close();
+            moveEvalSourcesRef.current[move.ply] = null;
+            return;
           }
-          if (evaluationRunIdRef.current !== runId) break;
-          setMoveEvaluations((prev) => ({
-            ...prev,
-            [move.ply]: { status: "success", evaluation: payload },
-          }));
-        } catch (err) {
-          if (evaluationRunIdRef.current !== runId) break;
-          setMoveEvaluations((prev) => ({
-            ...prev,
-            [move.ply]: { status: "error", error: getErrorMessage(err, "Engine error") },
-          }));
+          if (payload.evaluation) {
+            setMoveEvaluations((prev) => ({
+              ...prev,
+              [move.ply]: { status: "success", evaluation: payload.evaluation },
+            }));
+          }
+          if (payload.done) {
+            source.close();
+            moveEvalSourcesRef.current[move.ply] = null;
+          }
+        } catch {
+          // ignore malformed messages
         }
-      }
+      };
+      source.onerror = () => {
+        setMoveEvaluations((prev) => ({
+          ...prev,
+          [move.ply]: { status: "error", error: "Engine stream error" },
+        }));
+        source.close();
+        moveEvalSourcesRef.current[move.ply] = null;
+      };
     },
-    [startingSnapshot]
+    [API_BASE_URL]
   );
 
   const resetReviewState = useCallback(() => {
-    evaluationRunIdRef.current += 1;
+    Object.values(moveEvalSourcesRef.current).forEach((source) => source?.close());
+    moveEvalSourcesRef.current = {};
     setPlayerClock(null);
     setAnalysisReady(false);
     setTimeline([]);
@@ -504,9 +482,12 @@ export default function ReviewPage() {
   }, [analysisReady, resetReviewState]);
 
   const bootstrapTimeline = useCallback((moves: MoveSnapshot[]) => {
+    Object.values(moveEvalSourcesRef.current).forEach((source) => source?.close());
+    moveEvalSourcesRef.current = {};
     setTimeline(moves);
     setCurrentMoveIndex(moves.length ? 0 : -1);
     const map: Record<number, MoveEvalState> = {};
+    map[startingSnapshot.ply] = { status: "idle" };
     moves.forEach((move) => {
       map[move.ply] = { status: "idle" };
     });
@@ -515,7 +496,7 @@ export default function ReviewPage() {
     bookCacheRef.current = {};
     setLastEvaluationDisplay(null);
     setIsAutoPlaying(false);
-  }, []);
+  }, [startingSnapshot]);
 
   const runAnalysis = useCallback(
     async (rawPgn: string) => {
@@ -546,8 +527,6 @@ export default function ReviewPage() {
 
       const metadata = getGameResultFromPgn(trimmed);
       setGameResult(metadata);
-      const runId = Date.now();
-      evaluationRunIdRef.current = runId;
       setPgnInput(trimmed);
       setAnalysisLoading(true);
       try {
@@ -566,24 +545,19 @@ export default function ReviewPage() {
         }
 
         const timelineResult = payload.timeline ?? parsedMoves;
-        bootstrapTimeline(timelineResult, false);
+        bootstrapTimeline(timelineResult);
         setMoveEvaluations((prev) => mergeSampleEvaluations(prev, payload.samples));
-        await evaluateEntireTimeline(timelineResult, runId);
-        if (evaluationRunIdRef.current === runId) {
-          setAnalysisReady(true);
-          setAnalysisKey((prev) => prev + 1);
-          const extractedNames = getPlayerNamesFromPgn(trimmed);
-          setPlayerNames(extractedNames);
-        }
+        setAnalysisReady(true);
+        setAnalysisKey((prev) => prev + 1);
+        const extractedNames = getPlayerNamesFromPgn(trimmed);
+        setPlayerNames(extractedNames);
       } catch (err) {
         setAnalysisError(getErrorMessage(err, "Failed to run analysis"));
       } finally {
-        if (evaluationRunIdRef.current === runId) {
-          setAnalysisLoading(false);
-        }
+        setAnalysisLoading(false);
       }
     },
-    [bootstrapTimeline, evaluateEntireTimeline]
+    [bootstrapTimeline]
   );
 
   const handleAnalyze = () => {
@@ -608,6 +582,13 @@ export default function ReviewPage() {
     }
   }, [location.state, navigate, runAnalysis]);
 
+  useEffect(() => {
+    return () => {
+      Object.values(moveEvalSourcesRef.current).forEach((source) => source?.close());
+      moveEvalSourcesRef.current = {};
+    };
+  }, []);
+
   const handleSelectMove = useCallback(
     (index: number) => {
       if (index < -1 || index > timeline.length - 1) return;
@@ -615,13 +596,36 @@ export default function ReviewPage() {
       if (index >= 0) {
         const move = timeline[index];
         const state = moveEvaluations[move.ply];
-        if (!state || state.status === "idle") {
+        if (!state || state.status === "error") {
           requestEvaluation(move);
         }
       }
     },
     [moveEvaluations, requestEvaluation, timeline]
   );
+
+  const ensureMoveEvaluation = useCallback(
+    (move: MoveSnapshot | null) => {
+      if (!move) return;
+      const state = moveEvaluations[move.ply];
+      if (!state || state.status === "idle") {
+        requestEvaluation(move);
+      }
+    },
+    [moveEvaluations, requestEvaluation]
+  );
+
+  useEffect(() => {
+    if (!timeline.length) return;
+    if (currentMoveIndex >= 0) {
+      const currentMove = timeline[currentMoveIndex];
+      ensureMoveEvaluation(currentMove ?? null);
+      const previousSnapshot = currentMoveIndex === 0 ? startingSnapshot : timeline[currentMoveIndex - 1];
+      ensureMoveEvaluation(previousSnapshot ?? null);
+    } else if (timeline.length > 0) {
+      ensureMoveEvaluation(startingSnapshot);
+    }
+  }, [currentMoveIndex, timeline, ensureMoveEvaluation, startingSnapshot]);
 
   useEffect(() => {
     if (!isAutoPlaying) return;

@@ -7,6 +7,7 @@ export default function Navbar() {
   const links = [
     { to: "/", label: "Profile" },
     { to: "/review", label: "Review" },
+    { to: "/explorer", label: "Explorer" },
     // { to: "/compare", label: "Compare" },
   ];
 
@@ -18,7 +19,7 @@ export default function Navbar() {
           to="/"
           className="text-2xl font-extrabold text-[#00bfa6] tracking-tight hover:opacity-90 transition"
         >
-        Chesslytics
+          ChessLab
         </NavLink>
 
         {/* === Links === */}

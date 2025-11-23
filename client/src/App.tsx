@@ -19,7 +19,6 @@ export default function App() {
     userDataLoading,
     userDataError,
     refreshGames,
-    fetchUserData,
   } = useUser();
   const navigate = useNavigate();
   const [pendingUsername, setPendingUsername] = useState(username);
@@ -62,9 +61,6 @@ export default function App() {
 
   const handleRefresh = () => {
     refreshGames();
-    if (username.trim()) {
-      void fetchUserData(username);
-    }
   };
 
   const displayedGames = useMemo(() => games.slice(0, visibleGamesCount), [games, visibleGamesCount]);

@@ -8,7 +8,7 @@ const httpsAgent = new https.Agent({ keepAlive: true });
 
 const HEADERS = {
   "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Chesslytics/1.0 (contact: chrismarquez@example.com)",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 ChessLab/1.0 (contact: chrismarquez@example.com)",
   Accept: "application/json",
 };
 

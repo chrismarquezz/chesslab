@@ -8,14 +8,14 @@ export default function Layout() {
       {/* Navbar */}
       <header className="bg-white shadow-md py-4 px-6 flex justify-between items-center sticky top-0 z-50">
         <Link to="/" className="text-2xl font-bold text-[#00bfa6]">
-          ♟️ Chesslytics
+          ♟️ ChessLab
         </Link>
 
         <nav className="flex space-x-6 text-lg">
           <Link
-            to="/"
+            to="/profile"
             className={`${
-              location.pathname === "/" ? "text-[#00bfa6]" : "text-gray-700"
+              location.pathname === "/profile" ? "text-[#00bfa6]" : "text-gray-700"
             } hover:text-[#00bfa6] font-medium transition`}
           >
             Profile
