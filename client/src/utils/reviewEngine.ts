@@ -36,6 +36,16 @@ export function mergeSampleEvaluations(
   return next;
 }
 
+function extractClocksFromPgn(pgn: string): string[] {
+  const regex = /\[%clk\s+([^\]]+)\]/gi;
+  const clocks: string[] = [];
+  let match: RegExpExecArray | null = null;
+  while ((match = regex.exec(pgn)) !== null) {
+    clocks.push(match[1].trim());
+  }
+  return clocks;
+}
+
 export function buildTimelineFromPgn(pgn: string): MoveSnapshot[] {
   const chess = new Chess();
   try {
@@ -47,6 +57,7 @@ export function buildTimelineFromPgn(pgn: string): MoveSnapshot[] {
   chess.reset();
 
   const snapshots: MoveSnapshot[] = [];
+  const clockValues = extractClocksFromPgn(pgn);
   verboseMoves.forEach((move, index) => {
     chess.move(move);
     snapshots.push({
@@ -56,6 +67,7 @@ export function buildTimelineFromPgn(pgn: string): MoveSnapshot[] {
       color: move.color === "w" ? "white" : "black",
       fen: chess.fen(),
       uci: `${move.from}${move.to}${move.promotion ?? ""}`,
+      clock: clockValues[index],
     });
   });
   return snapshots;

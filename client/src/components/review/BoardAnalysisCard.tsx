@@ -13,6 +13,8 @@ interface BoardAnalysisCardProps {
   currentEvaluationScore: EngineScore | null;
   whiteLabel?: string;
   blackLabel?: string;
+  whiteClock?: string | null;
+  blackClock?: string | null;
   bestMoveArrows: Arrow[];
   timelineLength: number;
   currentMoveIndex: number;
@@ -35,6 +37,8 @@ export default function BoardAnalysisCard({
   currentEvaluationScore,
   whiteLabel,
   blackLabel,
+  whiteClock,
+  blackClock,
   bestMoveArrows,
   timelineLength,
   currentMoveIndex,
@@ -60,6 +64,8 @@ export default function BoardAnalysisCard({
         currentEvaluationScore={currentEvaluationScore}
         whiteLabel={whiteLabel}
         blackLabel={blackLabel}
+        whiteClock={whiteClock}
+        blackClock={blackClock}
       />
       <div className="flex justify-center">
         <Chessboard

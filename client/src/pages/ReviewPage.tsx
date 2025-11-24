@@ -53,6 +53,36 @@ const SAMPLE_PGN = `[Event "Live Chess"]
 21. Rd1 a5 22. Nd5 Nxd5 23. Rxd5 c3 24. b3 a4 25. Rb5 axb3 26. cxb3 Rxa2
 27. Kb1 Rfa8 28. Qg2 Rb2+ 29. Kc1 Ra1# 0-1`;
 
+function parseStartingClock(pgn: string): string | null {
+  const timeControlMatch = /\[TimeControl\s+"([^"]+)"\]/i.exec(pgn);
+  if (!timeControlMatch) return null;
+  const raw = timeControlMatch[1];
+  const basePart = raw.split(/[\+:]/)[0];
+
+  const parseSeconds = (value: string): number | null => {
+    if (value.includes(":")) {
+      const segments = value.split(":").map((v) => Number(v));
+      if (segments.some((n) => !Number.isFinite(n) || n < 0)) return null;
+      while (segments.length < 3) segments.unshift(0);
+      const [hours, minutes, seconds] = segments;
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+    // If the base is very small (e.g. "1" for 1-minute bullet), treat it as minutes.
+    return numeric <= 30 ? numeric * 60 : numeric;
+  };
+
+  const baseSeconds = parseSeconds(basePart);
+  if (!baseSeconds) return null;
+  const hours = Math.floor(baseSeconds / 3600);
+  const minutes = Math.floor((baseSeconds % 3600) / 60);
+  const seconds = baseSeconds % 60;
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  if (hours > 0) return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+  return `${minutes}:${pad(seconds)}`;
+}
+
 export default function ReviewPage() {
   const [pgnInput, setPgnInput] = useState("");
   const [selectedView] = useState<View>("analysis");
@@ -173,8 +203,8 @@ export default function ReviewPage() {
 
   const whiteDisplayName = playerNames.white && playerNames.white !== "?" ? playerNames.white : "White";
   const blackDisplayName = playerNames.black && playerNames.black !== "?" ? playerNames.black : "Black";
-  const whiteHeaderLabel = playerClock ? `${whiteDisplayName} (${playerClock})` : whiteDisplayName;
-  const blackHeaderLabel = playerClock ? `${blackDisplayName} (${playerClock})` : blackDisplayName;
+  const whiteHeaderLabel = whiteDisplayName;
+  const blackHeaderLabel = blackDisplayName;
 
   const movePairs = useMemo<MovePair[]>(() => {
     const pairs: MovePair[] = [];
@@ -197,6 +227,59 @@ export default function ReviewPage() {
   const currentEvaluationState = currentMove
     ? moveEvaluations[currentMove.ply]
     : moveEvaluations[0];
+
+  const clockTimeline = useMemo(() => {
+    const baseClock = playerClock ?? null;
+    const map: Record<number, { white: string | null; black: string | null }> = {
+      0: { white: baseClock, black: baseClock },
+    };
+    let whiteClock: string | null = baseClock;
+    let blackClock: string | null = baseClock;
+    timeline.forEach((move) => {
+      if (move.clock) {
+        if (move.color === "white") {
+          whiteClock = move.clock;
+        } else {
+          blackClock = move.clock;
+        }
+      }
+      map[move.ply] = { white: whiteClock, black: blackClock };
+    });
+    return map;
+  }, [playerClock, timeline]);
+
+  const earliestClockByColor = useMemo(() => {
+    let firstWhite: string | null = null;
+    let firstBlack: string | null = null;
+    for (const move of timeline) {
+      if (move.clock) {
+        if (move.color === "white" && !firstWhite) firstWhite = move.clock;
+        if (move.color === "black" && !firstBlack) firstBlack = move.clock;
+      }
+      if (firstWhite && firstBlack) break;
+    }
+    return { white: firstWhite, black: firstBlack };
+  }, [timeline]);
+
+  const currentClockSnapshot = useMemo(() => {
+    const baseClock = playerClock ?? null;
+    if (currentMove && clockTimeline[currentMove.ply]) {
+      return clockTimeline[currentMove.ply];
+    }
+    if (currentMoveIndex < 0 && clockTimeline[0]) {
+      return clockTimeline[0];
+    }
+    if (timeline.length && clockTimeline[timeline[0].ply]) {
+      return clockTimeline[timeline[0].ply];
+    }
+    return { white: baseClock, black: baseClock };
+  }, [clockTimeline, currentMove, currentMoveIndex, playerClock, timeline]);
+
+  // Prefer the current ply clock, then the starting time control, then the earliest clock seen for that color.
+  const whiteClockDisplay =
+    currentClockSnapshot.white ?? playerClock ?? earliestClockByColor.white ?? earliestClockByColor.black ?? null;
+  const blackClockDisplay =
+    currentClockSnapshot.black ?? playerClock ?? earliestClockByColor.black ?? earliestClockByColor.white ?? null;
 
   const moveClassifications = useMemo<Record<number, MoveQuality | undefined>>(() => {
     const map: Record<number, MoveQuality | undefined> = {};
@@ -412,6 +495,13 @@ export default function ReviewPage() {
 
       const metadata = getGameResultFromPgn(trimmed);
       setGameResult(metadata);
+      const startingClock = parseStartingClock(trimmed);
+      if (startingClock) {
+        setPlayerClock(startingClock);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(PLAYER_CLOCK_STORAGE_KEY, startingClock);
+        }
+      }
       setPgnInput(trimmed);
       setAnalysisLoading(true);
       try {
@@ -429,7 +519,12 @@ export default function ReviewPage() {
           throw new Error("error" in payload ? payload.error : "Failed to analyze game");
         }
 
-        const timelineResult = payload.timeline ?? parsedMoves;
+        const timelineFromServer = payload.timeline ?? parsedMoves;
+        const timelineResult = timelineFromServer.map((move, index) => {
+          const parsedMove = parsedMoves[index];
+          if (!parsedMove) return move;
+          return { ...parsedMove, ...move, clock: move.clock ?? parsedMove.clock };
+        });
         bootstrapTimeline(timelineResult);
         setMoveEvaluations((prev) => mergeSampleEvaluations(prev, payload.samples));
         setAnalysisReady(true);
@@ -446,7 +541,6 @@ export default function ReviewPage() {
   );
 
   const handleAnalyze = () => {
-    setPlayerClock(null);
     void runAnalysis(pgnInput);
   };
 
@@ -731,6 +825,8 @@ export default function ReviewPage() {
                     currentEvaluationScore={currentEvaluationScore}
                     whiteLabel={whiteHeaderLabel}
                     blackLabel={blackHeaderLabel}
+                    whiteClock={whiteClockDisplay}
+                    blackClock={blackClockDisplay}
                     bestMoveArrows={bestMoveArrows}
                     timelineLength={timeline.length}
                     currentMoveIndex={currentMoveIndex}
@@ -770,6 +866,8 @@ export default function ReviewPage() {
                   currentEvaluationScore={currentEvaluationScore}
                   whiteLabel={whiteHeaderLabel}
                   blackLabel={blackHeaderLabel}
+                  whiteClock={whiteClockDisplay}
+                  blackClock={blackClockDisplay}
                   bestMoveArrows={bestMoveArrows}
                   timelineLength={timeline.length}
                   currentMoveIndex={currentMoveIndex}

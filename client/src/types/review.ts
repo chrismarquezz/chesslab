@@ -9,6 +9,7 @@ export type MoveSnapshot = {
   color: "white" | "black";
   fen: string;
   uci?: string;
+  clock?: string;
 };
 
 export type EngineScore = { type: "cp" | "mate"; value: number };

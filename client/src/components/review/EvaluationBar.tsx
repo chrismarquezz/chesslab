@@ -6,6 +6,8 @@ interface EvaluationBarProps {
   currentEvaluationScore: EngineScore | null;
   whiteLabel?: string;
   blackLabel?: string;
+  whiteClock?: string | null;
+  blackClock?: string | null;
 }
 
 export default function EvaluationBar({
@@ -13,12 +15,20 @@ export default function EvaluationBar({
   currentEvaluationScore,
   whiteLabel = "White",
   blackLabel = "Black",
+  whiteClock,
+  blackClock,
 }: EvaluationBarProps) {
+  const formatClock = (value?: string | null) => (value && value.trim() ? value : "—");
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex justify-between text-xs font-semibold text-gray-600">
         <span>{whiteLabel}</span>
         <span>{blackLabel}</span>
+      </div>
+      <div className="flex justify-between text-[11px] text-gray-600 font-mono">
+        <span>{formatClock(whiteClock)}</span>
+        <span>{formatClock(blackClock)}</span>
       </div>
       <div className="relative h-6 border border-gray-300 rounded overflow-hidden bg-white">
         <div className="absolute inset-0 bg-gray-900" />
