@@ -20,9 +20,10 @@ export default function MoveListCard({
   movePairs,
   currentMoveIndex,
   onSelectMove,
-  moveClassifications,
+  moveClassifications: _moveClassifications,
   bookStatuses: _bookStatuses,
 }: MoveListCardProps) {
+  void _moveClassifications;
   void _bookStatuses;
   const renderButton = (move?: MoveSnapshot, index?: number) => {
     if (!move || index === undefined || index < 0) {

@@ -55,7 +55,7 @@ const SAMPLE_PGN = `[Event "Live Chess"]
 
 export default function ReviewPage() {
   const [pgnInput, setPgnInput] = useState("");
-  const [selectedView, setSelectedView] = useState<View>("analysis");
+  const [selectedView] = useState<View>("analysis");
   const [timeline, setTimeline] = useState<MoveSnapshot[]>([]);
   const [playerNames, setPlayerNames] = useState(() => {
     if (typeof window !== "undefined") {
@@ -104,7 +104,6 @@ export default function ReviewPage() {
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [showBestMoveArrow, setShowBestMoveArrow] = useState(true);
-  const [isClearing, setIsClearing] = useState(false);
   const [gameResult, setGameResult] = useState<GameResultInfo | null>(null);
   const bookCacheRef = useRef<Record<string, BookPositionInfo | null>>({});
   const moveEvalSourcesRef = useRef<Record<number, EventSource | null>>({});
@@ -707,7 +706,7 @@ export default function ReviewPage() {
           {analysisReady && !analysisLoading && !showAnalysisModal && selectedView === "analysis" && (
             <section
               key={analysisKey}
-              className={`${isClearing ? "fade-out" : "fade-in"} w-full`}
+              className="fade-in w-full"
             >
               <div
                 className="hidden xl:grid items-start mx-auto"
@@ -850,11 +849,6 @@ function getArrowFromBestMove(bestMove?: string | null): [Square, Square] | null
   const squareRegex = /^[a-h][1-8]$/;
   if (!squareRegex.test(from) || !squareRegex.test(to)) return null;
   return [from as Square, to as Square];
-}
-function getMovePhase(moveNumber: number): "Opening" | "Middlegame" | "Endgame" {
-  if (moveNumber <= 10) return "Opening";
-  if (moveNumber <= 30) return "Middlegame";
-  return "Endgame";
 }
 
 function getEvaluationSnapshot(state?: MoveEvalState): EngineEvaluation | undefined {
