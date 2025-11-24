@@ -21,15 +21,14 @@ export default function MoveListCard({
   currentMoveIndex,
   onSelectMove,
   moveClassifications,
-  bookStatuses,
+  bookStatuses: _bookStatuses,
 }: MoveListCardProps) {
+  void _bookStatuses;
   const renderButton = (move?: MoveSnapshot, index?: number) => {
     if (!move || index === undefined || index < 0) {
       return <span className="block text-center text-gray-400">—</span>;
     }
     const isActive = currentMoveIndex === index;
-    const classification = moveClassifications[move.ply];
-    const bookStatus = bookStatuses[move.ply];
     const baseClass = isActive ? "bg-[#00bfa6]/10 text-[#00bfa6]" : "hover:bg-white";
     return (
       <button

@@ -13,7 +13,6 @@ import type {
   BookMoveStatus,
   BookPositionInfo,
   EngineEvaluation,
-  EngineScore,
   GameAnalysisResponse,
   MoveEvalState,
   MoveQuality,
@@ -22,7 +21,6 @@ import type {
 import {
   UCI_MOVE_REGEX,
   buildTimelineFromPgn,
-  describeAdvantage,
   getErrorMessage,
   getEvalPercent,
   getMateWinner,
@@ -236,43 +234,6 @@ export default function ReviewPage() {
     }
   }, [currentEval, currentMove]);
 
-  const timelineStats = useMemo(() => {
-    const stats = {
-      evaluated: 0,
-      loading: 0,
-      pending: 0,
-      errors: 0,
-      total: timeline.length,
-    };
-    timeline.forEach((move) => {
-      const status = moveEvaluations[move.ply]?.status ?? "idle";
-      if (status === "success") {
-        stats.evaluated += 1;
-      } else if (status === "loading") {
-        stats.loading += 1;
-      } else if (status === "error") {
-        stats.errors += 1;
-      } else {
-        stats.pending += 1;
-      }
-    });
-    return {
-      ...stats,
-      progress: stats.total ? stats.evaluated / stats.total : 0,
-    };
-  }, [timeline, moveEvaluations]);
-
-  const timelineEntries = useMemo(
-    () =>
-      timeline.map((move, index) => ({
-        move,
-        index,
-        state: moveEvaluations[move.ply],
-        phase: getMovePhase(move.moveNumber),
-      })),
-    [timeline, moveEvaluations]
-  );
-
   const displayedEvaluation =
     currentEvaluationState?.status === "success"
       ? { evaluation: currentEvaluationState.evaluation, fen: currentFen }
@@ -303,9 +264,6 @@ export default function ReviewPage() {
   const evaluationPercent = displayedEvaluation
     ? getEvalPercent(currentEvaluationScore, currentEvaluationMateWinner)
     : 0.5;
-  const evaluationSummary = displayedEvaluation
-    ? describeAdvantage(evaluationPercent, currentEvaluationScore, currentEvaluationMateWinner)
-    : "No evaluation yet.";
   const engineStatus = currentEvaluationState?.status;
   const engineError = currentEvaluationState?.status === "error" ? currentEvaluationState.error : null;
 
@@ -345,12 +303,20 @@ export default function ReviewPage() {
             moveEvalSourcesRef.current[move.ply] = null;
             return;
           }
-          if (payload.evaluation) {
-            setMoveEvaluations((prev) => ({
-              ...prev,
-              [move.ply]: { status: "success", evaluation: payload.evaluation },
-            }));
+          if (!payload.evaluation) {
+            if (payload.done) {
+              source.close();
+              moveEvalSourcesRef.current[move.ply] = null;
+            }
+            return;
           }
+          const evaluation: EngineEvaluation = payload.evaluation;
+          setMoveEvaluations(
+            (prev): Record<number, MoveEvalState> => ({
+              ...prev,
+              [move.ply]: { status: "success", evaluation },
+            })
+          );
           if (payload.done) {
             source.close();
             moveEvalSourcesRef.current[move.ply] = null;
@@ -394,18 +360,6 @@ export default function ReviewPage() {
       window.localStorage.removeItem(PLAYER_CLOCK_STORAGE_KEY);
     }
   }, []);
-
-  const handleStartNewReview = useCallback(() => {
-    if (analysisReady) {
-      setIsClearing(true);
-      setTimeout(() => {
-        resetReviewState();
-        setIsClearing(false);
-      }, 350);
-    } else {
-      resetReviewState();
-    }
-  }, [analysisReady, resetReviewState]);
 
   const bootstrapTimeline = useCallback((moves: MoveSnapshot[]) => {
     Object.values(moveEvalSourcesRef.current).forEach((source) => source?.close());
@@ -709,17 +663,6 @@ export default function ReviewPage() {
     };
   }, [analysisReady, timeline, initialFen, fetchBookPosition]);
 
-  const handleInspectFromTimeline = (index: number) => {
-    handleSelectMove(index);
-    setSelectedView("analysis");
-  };
-
-  const handleEvaluateFromTimeline = (move: MoveSnapshot) => {
-    const state = moveEvaluations[move.ply];
-    if (state?.status === "loading" || state?.status === "success") return;
-    requestEvaluation(move);
-  };
-
   // const evaluatedMoves = useMemo(() => {
   //   return timeline.filter(
   //     (move) => reviewedPlies.has(move.ply) && moveEvaluations[move.ply]?.status === "success"
@@ -962,29 +905,6 @@ function getGameResultFromPgn(pgn: string): GameResultInfo | null {
     result,
     termination: terminationMatch?.[1],
   };
-}
-
-function getClockFromPgn(pgn: string): string | null {
-  const match = pgn.match(/\[TimeControl\s+"([^"]+)"\]/i);
-  if (!match) return null;
-  return formatClockDisplay(match[1]);
-}
-
-function formatClockDisplay(control?: string | null): string | null {
-  if (!control || control === "-") return null;
-  const [baseStr, incStr] = control.split("+");
-  const baseSeconds = Number(baseStr) || 0;
-  const increment = incStr ? Number(incStr) : 0;
-  const minutes = Math.floor(baseSeconds / 60);
-  const seconds = baseSeconds % 60;
-  let baseLabel = "";
-  if (minutes > 0) {
-    baseLabel = seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
-  } else {
-    baseLabel = `${seconds}s`;
-  }
-  const incLabel = increment ? ` + ${increment}s` : "";
-  return `${baseLabel}${incLabel}`;
 }
 
 const BOARD_THEMES: Record<

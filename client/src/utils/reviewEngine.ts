@@ -1,6 +1,5 @@
 import { Chess, type Square } from "chess.js";
 import type {
-  EngineEvaluation,
   EngineLine,
   EngineSample,
   EngineScore,
@@ -208,8 +207,6 @@ export function classifyMoveQuality({
   previousFen,
   currentFen,
   forcedMove,
-  previousMoveQuality,
-  previousMoverColor,
 }: {
   previousScore: EngineScore | null;
   currentScore: EngineScore | null;
@@ -217,8 +214,6 @@ export function classifyMoveQuality({
   previousFen?: string;
   currentFen?: string;
   forcedMove?: boolean;
-  previousMoveQuality?: MoveQuality | null;
-  previousMoverColor?: "white" | "black";
 }): MoveQuality | null {
   if (forcedMove) {
     return {

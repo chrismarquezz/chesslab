@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Move, type Square } from "chess.js";
 import Navbar from "../components/Navbar";
-import type { BoardThemeKey, EngineEvaluation, EngineScore, MoveSnapshot } from "../types/review";
-import { getErrorMessage, getEvalPercent, getMateWinner, UCI_MOVE_REGEX } from "../utils/reviewEngine";
+import type { BoardThemeKey, EngineEvaluation, MoveSnapshot } from "../types/review";
+import { getEvalPercent, getMateWinner, UCI_MOVE_REGEX } from "../utils/reviewEngine";
 import MoveListCard, { type MovePair } from "../components/review/MoveListCard";
 import ExplorerBoardCard from "../components/explorer/ExplorerBoardCard";
 import EngineAnalysisCard from "../components/review/EngineAnalysisCard";
