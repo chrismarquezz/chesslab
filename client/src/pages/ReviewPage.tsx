@@ -794,6 +794,9 @@ export default function ReviewPage() {
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
         handleSelectMove(timeline.length - 1);
+      } else if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        setBoardOrientation((prev) => (prev === "white" ? "black" : "white"));
       }
     };
 
