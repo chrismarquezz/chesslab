@@ -713,7 +713,7 @@ export default function ReviewPage() {
   );
 
   useEffect(() => {
-    if (!timeline.length) return;
+    if (!timeline.length || isAutoPlaying) return;
     if (currentMoveIndex >= 0) {
       const currentMove = timeline[currentMoveIndex];
       ensureMoveEvaluation(currentMove ?? null);
@@ -722,7 +722,7 @@ export default function ReviewPage() {
     } else if (timeline.length > 0) {
       ensureMoveEvaluation(startingSnapshot);
     }
-  }, [currentMoveIndex, timeline, ensureMoveEvaluation, startingSnapshot]);
+  }, [currentMoveIndex, ensureMoveEvaluation, isAutoPlaying, startingSnapshot, timeline]);
 
   useEffect(() => {
     if (!isAutoPlaying) return;
@@ -738,7 +738,7 @@ export default function ReviewPage() {
     }
     const timer = setTimeout(() => {
       handleSelectMove(nextIndex);
-    }, 1500);
+    }, 1000);
     return () => clearTimeout(timer);
   }, [handleSelectMove, isAutoPlaying, currentMoveIndex, timeline]);
 
@@ -753,6 +753,20 @@ export default function ReviewPage() {
     listContainer.scrollBy({ top: offset, behavior: "smooth" });
   }, [currentMoveIndex]);
 
+  const handleToggleAutoPlay = useCallback(() => {
+    if (!timeline.length) return;
+    if (isAutoPlaying) {
+      setIsAutoPlaying(false);
+      return;
+    }
+    const nextIndex =
+      currentMoveIndex < timeline.length - 1 ? currentMoveIndex + 1 : currentMoveIndex === -1 ? 0 : currentMoveIndex;
+    if (nextIndex !== null && nextIndex !== currentMoveIndex) {
+      handleSelectMove(nextIndex);
+    }
+    setIsAutoPlaying(true);
+  }, [currentMoveIndex, handleSelectMove, isAutoPlaying, timeline.length]);
+
   useEffect(() => {
     if (!analysisReady || !timeline.length) return;
 
@@ -765,7 +779,10 @@ export default function ReviewPage() {
         }
       }
 
-      if (event.key === "ArrowLeft") {
+      if (event.key === " " || event.code === "Space" || event.key === "Spacebar") {
+        event.preventDefault();
+        handleToggleAutoPlay();
+      } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         handleSelectMove(Math.max(currentMoveIndex - 1, -1));
       } else if (event.key === "ArrowRight") {
@@ -782,21 +799,7 @@ export default function ReviewPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [analysisReady, timeline.length, currentMoveIndex, handleSelectMove]);
-
-  const handleToggleAutoPlay = () => {
-    if (!timeline.length) return;
-    if (isAutoPlaying) {
-      setIsAutoPlaying(false);
-      return;
-    }
-    const nextIndex =
-      currentMoveIndex < timeline.length - 1 ? currentMoveIndex + 1 : currentMoveIndex === -1 ? 0 : currentMoveIndex;
-    if (nextIndex !== null && nextIndex !== currentMoveIndex) {
-      handleSelectMove(nextIndex);
-    }
-    setIsAutoPlaying(true);
-  };
+  }, [analysisReady, timeline.length, currentMoveIndex, handleSelectMove, handleToggleAutoPlay]);
 
   const fetchBookPosition = useCallback(
     async (fen: string): Promise<BookPositionInfo | null> => {
