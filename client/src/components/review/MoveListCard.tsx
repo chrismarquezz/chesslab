@@ -48,20 +48,22 @@ export default function MoveListCard({
     <div className="bg-white shadow-lg transition-all duration-300 rounded-2xl border border-gray-200 overflow-hidden">
       <div className="max-h-110 overflow-y-auto bg-gray-50" data-move-list>
         {movePairs.length ? (
-          <table className="w-full text-sm text-gray-700">
+          <table className="w-full text-sm text-gray-700 table-fixed">
             <thead className="text-xs uppercase tracking-wide text-gray-100 bg-gray-800 sticky top-0 z-10">
               <tr>
-                <th className="py-3 pr-4 text-center font-semibold">#</th>
-                <th className="py-3 px-4 text-center font-semibold">White</th>
-                <th className="py-3 px-4 text-center font-semibold">Black</th>
+                <th className="py-3 px-2 text-center font-semibold w-12">#</th>
+                <th className="py-3 px-3 text-center font-semibold w-[44%]">White</th>
+                <th className="py-3 px-3 text-center font-semibold w-[44%]">Black</th>
               </tr>
             </thead>
             <tbody className="bg-gray-50">
               {movePairs.map((pair) => (
                 <tr key={pair.moveNumber} className="border-b border-gray-200 last:border-none">
-                  <td className="py-2 pr-4 text-xs font-mono text-gray-500 text-center">{pair.moveNumber}</td>
-                  <td className="py-1 px-4">{renderButton(pair.white, pair.whiteIndex)}</td>
-                  <td className="py-1 px-4">{renderButton(pair.black, pair.blackIndex)}</td>
+                  <td className="py-2 px-2 text-xs font-mono text-gray-500 text-center align-middle whitespace-nowrap">
+                    {pair.moveNumber}
+                  </td>
+                  <td className="py-1 px-3">{renderButton(pair.white, pair.whiteIndex)}</td>
+                  <td className="py-1 px-3">{renderButton(pair.black, pair.blackIndex)}</td>
                 </tr>
               ))}
             </tbody>

@@ -45,12 +45,13 @@ export interface GameAnalysis {
 interface EngineStreamOptions {
   fen: string;
   depth: number;
+  lines?: number;
   onUpdate: (evaluation: EngineEvaluation) => void;
   onError: (error: Error) => void;
   onComplete: () => void;
 }
 
-export async function analyzeGameWithEngine(pgn: string, sampleCount = 5, depth = 14): Promise<GameAnalysis> {
+export async function analyzeGameWithEngine(pgn: string, sampleCount = 5, depth = 14, lines = 3): Promise<GameAnalysis> {
   const chess = new Chess();
   try {
     chess.loadPgn(pgn);
@@ -77,7 +78,7 @@ export async function analyzeGameWithEngine(pgn: string, sampleCount = 5, depth 
   const annotated = [];
   for (const snapshot of samples) {
     try {
-      const evaluation = await evaluateFen(snapshot.fen, depth);
+      const evaluation = await evaluateFen(snapshot.fen, depth, lines);
       annotated.push({ ...snapshot, evaluation });
     } catch (err) {
       const message = (err as Error).message || "Engine error";
@@ -97,7 +98,7 @@ export async function analyzeGameWithEngine(pgn: string, sampleCount = 5, depth 
   };
 }
 
-export function evaluateFen(fen: string, depth = 14): Promise<EngineEvaluation> {
+export function evaluateFen(fen: string, depth = 14, lines = 3): Promise<EngineEvaluation> {
   return new Promise((resolve, reject) => {
     const engine = spawn(ENGINE_PATH, [], { stdio: "pipe" });
     const rawOutput: string[] = [];
@@ -221,7 +222,7 @@ export function evaluateFen(fen: string, depth = 14): Promise<EngineEvaluation> 
     const run = async () => {
       await commandAndWait("uci", "uciok");
       await commandAndWait("isready", "readyok");
-      send("setoption name MultiPV value 3");
+      send(`setoption name MultiPV value ${Math.max(1, Math.min(5, lines))}`);
       await commandAndWait("isready", "readyok");
       send(`position fen ${fen}`);
       send(`go depth ${depth}`);
@@ -240,7 +241,7 @@ export function evaluateFen(fen: string, depth = 14): Promise<EngineEvaluation> 
 }
 
 export function streamEvaluateFen(options: EngineStreamOptions): () => void {
-  const { fen, depth, onUpdate, onError, onComplete } = options;
+  const { fen, depth, onUpdate, onError, onComplete, lines = 3 } = options;
   const engine = spawn(ENGINE_PATH, [], { stdio: "pipe" });
   const waiters: Array<{ token: string; resolve: () => void }> = [];
   let timer: NodeJS.Timeout | null = null;
@@ -276,8 +277,7 @@ export function streamEvaluateFen(options: EngineStreamOptions): () => void {
       }))
       .filter(({ line }) => Boolean(line?.move))
       .sort((a, b) => a.order - b.order)
-      .map(({ line }) => line as EngineLine)
-      .slice(0, 3);
+      .map(({ line }) => line as EngineLine);
 
     const primaryLine = sortedLines[0];
     const evaluation = normalizeEvaluationForFen(
@@ -377,7 +377,7 @@ export function streamEvaluateFen(options: EngineStreamOptions): () => void {
   const run = async () => {
     await commandAndWait("uci", "uciok");
     await commandAndWait("isready", "readyok");
-    send("setoption name MultiPV value 3");
+      send(`setoption name MultiPV value ${Math.max(1, Math.min(5, lines))}`);
     await commandAndWait("isready", "readyok");
     send(`position fen ${fen}`);
     send(`go depth ${depth}`);

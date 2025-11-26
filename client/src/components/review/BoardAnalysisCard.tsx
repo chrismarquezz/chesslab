@@ -1,5 +1,5 @@
 import { Chessboard } from "react-chessboard";
-import { ArrowUpDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Lightbulb, Palette, Pause, Play } from "lucide-react";
+import { ArrowUpDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Lightbulb, Pause, Play, Settings } from "lucide-react";
 import type { Arrow, EngineScore } from "../../types/review";
 import BoardControlButton from "./BoardControlButton";
 import EvaluationBar from "./EvaluationBar";
@@ -23,6 +23,7 @@ interface BoardAnalysisCardProps {
   atEnd: boolean;
   isAutoPlaying: boolean;
   showBestMoveArrow: boolean;
+  engineEnabled?: boolean;
   onSelectMove: (index: number) => void;
   onToggleAutoPlay: () => void;
   onFlipBoard: () => void;
@@ -49,6 +50,7 @@ export default function BoardAnalysisCard({
   atEnd,
   isAutoPlaying,
   showBestMoveArrow,
+  engineEnabled = true,
   onSelectMove,
   onToggleAutoPlay,
   onFlipBoard,
@@ -135,13 +137,14 @@ export default function BoardAnalysisCard({
         <div className="flex gap-2 justify-end flex-shrink-0">
           <BoardControlButton
             onClick={onToggleBestMoveArrow}
-            active={showBestMoveArrow}
-            label={showBestMoveArrow ? "Hide Hint" : "Show Hint"}
+            active={engineEnabled && showBestMoveArrow}
+            disabled={!engineEnabled}
+            label={engineEnabled ? (showBestMoveArrow ? "Hide Hint" : "Show Hint") : "Engine off"}
           >
             <Lightbulb className="h-4 w-4" />
           </BoardControlButton>
-          <BoardControlButton onClick={onOpenThemeModal} label="Change Theme">
-            <Palette className="h-4 w-4" />
+          <BoardControlButton onClick={onOpenThemeModal} label="Settings">
+            <Settings className="h-4 w-4" />
           </BoardControlButton>
         </div>
       </div>

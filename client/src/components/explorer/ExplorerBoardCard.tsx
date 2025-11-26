@@ -1,5 +1,5 @@
 import { Chessboard } from "react-chessboard";
-import { ArrowUpDown, CornerUpLeft, Lightbulb, Palette, RotateCcw } from "lucide-react";
+import { ArrowUpDown, CornerUpLeft, Lightbulb, RotateCcw, Settings } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { Square } from "chess.js";
 import type { Arrow, EngineScore } from "../../types/review";
@@ -101,8 +101,8 @@ export default function ExplorerBoardCard({
           <BoardControlButton onClick={onToggleBestMoveArrow} active={showBestMoveArrow} label="Best-move hint">
             <Lightbulb className="h-4 w-4" />
           </BoardControlButton>
-          <BoardControlButton onClick={onOpenThemeModal} label="Change theme">
-            <Palette className="h-4 w-4" />
+          <BoardControlButton onClick={onOpenThemeModal} label="Settings">
+            <Settings className="h-4 w-4" />
           </BoardControlButton>
         </div>
       </div>

@@ -7,6 +7,10 @@ interface EngineAnalysisCardProps {
   engineError: string | null;
   stableEvaluation: { evaluation: EngineEvaluation; fen?: string } | null;
   drawInfo?: { result: string; reason?: string };
+  fullReviewDone?: boolean;
+  linesToShow?: number;
+  engineEnabled?: boolean;
+  onToggleEngine?: () => void;
 }
 
 export default function EngineAnalysisCard({
@@ -14,6 +18,10 @@ export default function EngineAnalysisCard({
   engineError,
   stableEvaluation,
   drawInfo,
+  fullReviewDone = true,
+  linesToShow = 3,
+  engineEnabled = true,
+  onToggleEngine,
 }: EngineAnalysisCardProps) {
   const showDraw = Boolean(drawInfo && drawInfo.result === "1/2-1/2");
   const [activeTab, setActiveTab] = useState<"summary" | "analysis" | "time" | "explorer">("analysis");
@@ -60,15 +68,22 @@ export default function EngineAnalysisCard({
     <div className="flex flex-col gap-0">
       <div className="flex w-full border border-gray-200 bg-white rounded-t-2xl overflow-hidden">
         {tabs.map((tab) => {
+          const disabled = !fullReviewDone && tab.key !== "analysis";
           const active = tab.key === activeTab;
           return (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                if (disabled) return;
+                setActiveTab(tab.key);
+              }}
+              disabled={disabled}
               className={`flex-1 text-sm font-semibold py-3 text-center transition ${
                 active
                   ? "bg-[#00bfa6]/10 text-gray-900 border-b-2 border-[#00bfa6]"
-                  : "text-gray-500"
+                  : disabled
+                    ? "text-gray-300 cursor-not-allowed"
+                    : "text-gray-500"
               }`}
             >
               {tab.label}
@@ -77,17 +92,32 @@ export default function EngineAnalysisCard({
         })}
       </div>
       <div className="bg-white rounded-b-2xl border border-gray-200 border-t-0 shadow transition-all duration-300 flex flex-col h-[380px] px-5 pb-5 pt-4">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-semibold text-gray-800">Engine</p>
+          <button
+            type="button"
+            onClick={onToggleEngine}
+            className={`relative inline-flex h-6 w-12 items-center rounded-full transition ${engineEnabled ? "bg-[#00bfa6]" : "bg-gray-300"}`}
+            aria-label="Toggle engine"
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${engineEnabled ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
+        </div>
         <div className="flex-1 overflow-y-auto">
           {activeTab === "summary" && summaryContent}
           {activeTab === "analysis" &&
-            (showDraw ? (
+            (!engineEnabled ? (
+              <p className="text-sm text-gray-500">Engine is turned off.</p>
+            ) : showDraw ? (
               <DrawSummary reason={drawInfo?.reason} />
             ) : engineStatus === "error" && !stableEvaluation ? (
               <p className="text-sm text-red-500">Engine error: {engineError || "Unable to evaluate position."}</p>
             ) : !stableEvaluation ? (
               <p className="text-sm text-gray-500">Analyzing current position…</p>
             ) : (
-              <EngineLines evaluation={stableEvaluation.evaluation} fen={stableEvaluation.fen} />
+              <EngineLines evaluation={stableEvaluation.evaluation} fen={stableEvaluation.fen} linesToShow={linesToShow} />
             ))}
           {activeTab === "time" && timeContent}
           {activeTab === "explorer" && explorerContent}
@@ -97,7 +127,7 @@ export default function EngineAnalysisCard({
   );
 }
 
-function EngineLines({ evaluation, fen }: { evaluation: EngineEvaluation; fen?: string }) {
+function EngineLines({ evaluation, fen, linesToShow }: { evaluation: EngineEvaluation; fen?: string; linesToShow: number }) {
   const lines = (evaluation.lines && evaluation.lines.length
     ? evaluation.lines
     : [
@@ -107,7 +137,7 @@ function EngineLines({ evaluation, fen }: { evaluation: EngineEvaluation; fen?: 
           pv: evaluation.pv,
         },
       ]
-  ).slice(0, 3);
+  ).slice(0, Math.max(1, Math.min(5, linesToShow || 3)));
 
   const mateWinner =
     evaluation.score?.type === "mate" && evaluation.score.value === 0 ? getMateWinner(evaluation.score, fen) : undefined;

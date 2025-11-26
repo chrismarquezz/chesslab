@@ -50,6 +50,7 @@ export default function ExplorerPage() {
   const evaluationSourceRef = useRef<EventSource | null>(null);
   const [showBestMoveArrow, setShowBestMoveArrow] = useState(true);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const [engineLinesCount, setEngineLinesCount] = useState(3);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [boardTheme, setBoardTheme] = useState<BoardThemeKey>(() => {
     if (typeof window !== "undefined") {
@@ -362,6 +363,7 @@ export default function ExplorerPage() {
                   engineStatus={evaluationState.status}
                   engineError={evaluationState.status === "error" ? evaluationState.error : null}
                   stableEvaluation={displayedEvaluation}
+                  linesToShow={engineLinesCount}
                 />
               </div>
             </div>
@@ -397,6 +399,7 @@ export default function ExplorerPage() {
                 engineStatus={evaluationState.status}
                 engineError={evaluationState.status === "error" ? evaluationState.error : null}
                 stableEvaluation={displayedEvaluation}
+                linesToShow={engineLinesCount}
               />
             </div>
           </section>
@@ -410,6 +413,8 @@ export default function ExplorerPage() {
           setBoardTheme(key as BoardThemeKey);
           setIsThemeModalOpen(false);
         }}
+        pvCount={engineLinesCount}
+        onChangePvCount={(value) => setEngineLinesCount(value)}
         onClose={() => setIsThemeModalOpen(false)}
       />
 

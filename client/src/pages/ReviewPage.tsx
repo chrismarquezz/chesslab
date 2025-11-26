@@ -83,6 +83,24 @@ function parseStartingClock(pgn: string): string | null {
   return `${minutes}:${pad(seconds)}`;
 }
 
+function formatClockDisplay(clock: string | null): string | null {
+  if (!clock) return null;
+  const parts = clock.split(":").map((p) => Number(p));
+  if (parts.some((n) => Number.isNaN(n))) return clock;
+  if (parts.length === 3) {
+    const [h, m, s] = parts;
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    if (h === 0) return `${m}:${pad(s)}`;
+    return `${h}:${pad(m)}:${pad(s)}`;
+  }
+  if (parts.length === 2) {
+    const [m, s] = parts;
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${m}:${pad(s)}`;
+  }
+  return clock;
+}
+
 export default function ReviewPage() {
   const [pgnInput, setPgnInput] = useState("");
   const [selectedView] = useState<View>("analysis");
@@ -140,6 +158,8 @@ export default function ReviewPage() {
   const [gameResult, setGameResult] = useState<GameResultInfo | null>(null);
   const bookCacheRef = useRef<Record<string, BookPositionInfo | null>>({});
   const moveEvalSourcesRef = useRef<Record<number, EventSource | null>>({});
+  const [engineLinesCount, setEngineLinesCount] = useState(3);
+  const [engineEnabled, setEngineEnabled] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -283,10 +303,12 @@ export default function ReviewPage() {
   }, [clockTimeline, currentMove, currentMoveIndex, playerClock, timeline]);
 
   // Prefer the current ply clock, then the starting time control, then the earliest clock seen for that color.
-  const whiteClockDisplay =
-    currentClockSnapshot.white ?? playerClock ?? earliestClockByColor.white ?? earliestClockByColor.black ?? null;
-  const blackClockDisplay =
-    currentClockSnapshot.black ?? playerClock ?? earliestClockByColor.black ?? earliestClockByColor.white ?? null;
+  const whiteClockDisplay = formatClockDisplay(
+    currentClockSnapshot.white ?? playerClock ?? earliestClockByColor.white ?? earliestClockByColor.black ?? null
+  );
+  const blackClockDisplay = formatClockDisplay(
+    currentClockSnapshot.black ?? playerClock ?? earliestClockByColor.black ?? earliestClockByColor.white ?? null
+  );
 
   const moveClassifications = useMemo<Record<number, MoveQuality | undefined>>(() => {
     if (!fullReviewDone) return {};
@@ -410,10 +432,10 @@ export default function ReviewPage() {
   const isDrawnPosition = Boolean(drawInfo);
 
   const bestMoveArrows = useMemo(() => {
-    if (!showBestMoveArrow || !displayedEvaluation || isDrawnPosition) return [] as Array<[Square, Square]>;
+    if (!engineEnabled || !showBestMoveArrow || !displayedEvaluation || isDrawnPosition) return [] as Array<[Square, Square]>;
     const arrow = getArrowFromBestMove(displayedEvaluation.evaluation.bestMove);
     return arrow ? [arrow] : [];
-  }, [showBestMoveArrow, displayedEvaluation, isDrawnPosition]);
+  }, [engineEnabled, showBestMoveArrow, displayedEvaluation, isDrawnPosition]);
   const currentEvaluationScore = displayedEvaluation?.evaluation.score ?? null;
   const currentEvaluationMateWinner = displayedEvaluation
     ? getMateWinner(currentEvaluationScore, displayedEvaluation.fen)
@@ -430,8 +452,8 @@ export default function ReviewPage() {
 
   const requestEvaluation = useCallback(
     (move: MoveSnapshot) => {
-      if (typeof window === "undefined") return;
-      const url = `${API_BASE_URL}/api/review/evaluate/stream?fen=${encodeURIComponent(move.fen)}&depth=22`;
+      if (!engineEnabled || typeof window === "undefined") return;
+      const url = `${API_BASE_URL}/api/review/evaluate/stream?fen=${encodeURIComponent(move.fen)}&depth=22&lines=${engineLinesCount}`;
       moveEvalSourcesRef.current[move.ply]?.close();
       const source = new EventSource(url);
       moveEvalSourcesRef.current[move.ply] = source;
@@ -491,7 +513,7 @@ export default function ReviewPage() {
         moveEvalSourcesRef.current[move.ply] = null;
       };
     },
-    [API_BASE_URL]
+    [API_BASE_URL, engineEnabled, engineLinesCount]
   );
 
   const resetReviewState = useCallback(() => {
@@ -620,6 +642,7 @@ export default function ReviewPage() {
             pgn: pgnInput.trim(),
             depth: 16,
             samples: Math.min(parsedMoves.length, 10),
+            lines: engineLinesCount,
           }),
         });
         const payload: GameAnalysisResponse | { error: string } = await response.json();
@@ -713,7 +736,7 @@ export default function ReviewPage() {
   );
 
   useEffect(() => {
-    if (!timeline.length || isAutoPlaying) return;
+    if (!engineEnabled || !timeline.length || isAutoPlaying) return;
     if (currentMoveIndex >= 0) {
       const currentMove = timeline[currentMoveIndex];
       ensureMoveEvaluation(currentMove ?? null);
@@ -722,7 +745,13 @@ export default function ReviewPage() {
     } else if (timeline.length > 0) {
       ensureMoveEvaluation(startingSnapshot);
     }
-  }, [currentMoveIndex, ensureMoveEvaluation, isAutoPlaying, startingSnapshot, timeline]);
+  }, [currentMoveIndex, ensureMoveEvaluation, engineEnabled, isAutoPlaying, startingSnapshot, timeline]);
+
+  useEffect(() => {
+    if (!currentMove || !engineEnabled) return;
+    setMoveEvaluations((prev) => ({ ...prev, [currentMove.ply]: { status: "idle" } }));
+    requestEvaluation(currentMove);
+  }, [currentMove, engineEnabled, engineLinesCount, requestEvaluation]);
 
   useEffect(() => {
     if (!isAutoPlaying) return;
@@ -767,6 +796,25 @@ export default function ReviewPage() {
     setIsAutoPlaying(true);
   }, [currentMoveIndex, handleSelectMove, isAutoPlaying, timeline.length]);
 
+  const handleToggleEngine = useCallback(() => {
+    setEngineEnabled((prev) => {
+      const next = !prev;
+      if (!next) {
+        Object.values(moveEvalSourcesRef.current).forEach((source) => source?.close());
+        moveEvalSourcesRef.current = {};
+        // keep previous desire remembered
+      } else if (currentMove) {
+        setShowBestMoveArrow((prevArrow) => prevArrow || true);
+        setMoveEvaluations((prevState) => ({
+          ...prevState,
+          [currentMove.ply]: { status: "idle" },
+        }));
+        requestEvaluation(currentMove);
+      }
+      return next;
+    });
+  }, [currentMove, requestEvaluation]);
+
   useEffect(() => {
     if (!analysisReady || !timeline.length) return;
 
@@ -797,6 +845,9 @@ export default function ReviewPage() {
       } else if (event.key.toLowerCase() === "f") {
         event.preventDefault();
         setBoardOrientation((prev) => (prev === "white" ? "black" : "white"));
+      } else if (event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        setIsThemeModalOpen((prev) => !prev);
       }
     };
 
@@ -960,6 +1011,7 @@ export default function ReviewPage() {
                     atEnd={atEnd}
                     isAutoPlaying={isAutoPlaying}
                     showBestMoveArrow={showBestMoveArrow}
+                    engineEnabled={engineEnabled}
                     onSelectMove={handleSelectMove}
                     onToggleAutoPlay={handleToggleAutoPlay}
                     onFlipBoard={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
@@ -995,6 +1047,10 @@ export default function ReviewPage() {
                     engineError={engineError}
                     stableEvaluation={stableEvaluation}
                     drawInfo={drawInfo}
+                    fullReviewDone={fullReviewDone}
+                    linesToShow={engineLinesCount}
+                    engineEnabled={engineEnabled}
+                    onToggleEngine={handleToggleEngine}
                   />
                 </div>
               </div>
@@ -1019,6 +1075,7 @@ export default function ReviewPage() {
                   atEnd={atEnd}
                   isAutoPlaying={isAutoPlaying}
                   showBestMoveArrow={showBestMoveArrow}
+                  engineEnabled={engineEnabled}
                   onSelectMove={handleSelectMove}
                   onToggleAutoPlay={handleToggleAutoPlay}
                   onFlipBoard={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
@@ -1058,12 +1115,16 @@ export default function ReviewPage() {
                     </button>
                   </div>
                 )}
-              <EngineAnalysisCard
-                engineStatus={engineStatus}
-                engineError={engineError}
-                stableEvaluation={stableEvaluation}
-                drawInfo={drawInfo}
-              />
+                <EngineAnalysisCard
+                  engineStatus={engineStatus}
+                  engineError={engineError}
+                  stableEvaluation={stableEvaluation}
+                  drawInfo={drawInfo}
+                  fullReviewDone={fullReviewDone}
+                  linesToShow={engineLinesCount}
+                  engineEnabled={engineEnabled}
+                  onToggleEngine={handleToggleEngine}
+                />
               </div>
             </section>
           )}
@@ -1096,6 +1157,8 @@ export default function ReviewPage() {
           setBoardTheme(key as BoardThemeKey);
           setIsThemeModalOpen(false);
         }}
+        pvCount={engineLinesCount}
+        onChangePvCount={(value) => setEngineLinesCount(value)}
         onClose={() => setIsThemeModalOpen(false)}
       />
     </>

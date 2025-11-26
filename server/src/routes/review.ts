@@ -5,7 +5,7 @@ import { fetchBookMoves } from "../services/bookService";
 const router = express.Router();
 
 router.post("/analyze", async (req, res) => {
-  const { pgn, depth, samples } = req.body ?? {};
+  const { pgn, depth, samples, lines } = req.body ?? {};
   if (!pgn || typeof pgn !== "string") {
     return res.status(400).json({ error: "pgn is required" });
   }
@@ -13,7 +13,8 @@ router.post("/analyze", async (req, res) => {
   try {
     const cappedDepth = typeof depth === "number" ? Math.min(Math.max(depth, 8), 25) : 14;
     const sampleCount = typeof samples === "number" ? Math.max(1, Math.min(10, samples)) : 5;
-    const analysis = await analyzeGameWithEngine(pgn, sampleCount, cappedDepth);
+    const lineCount = typeof lines === "number" ? Math.max(1, Math.min(5, lines)) : 3;
+    const analysis = await analyzeGameWithEngine(pgn, sampleCount, cappedDepth, lineCount);
     res.json(analysis);
   } catch (err: any) {
     console.error("❌ Review analysis failed:", err);
@@ -48,12 +49,14 @@ router.post("/evaluate", async (req, res) => {
 });
 
 router.get("/evaluate/stream", (req, res) => {
-  const { fen, depth } = req.query;
+  const { fen, depth, lines } = req.query;
   if (!fen || typeof fen !== "string") {
     return res.status(400).json({ error: "fen is required" });
   }
   const parsedDepth = typeof depth === "string" ? Number.parseInt(depth, 10) : NaN;
   const cappedDepth = Number.isFinite(parsedDepth) ? Math.min(Math.max(parsedDepth, 8), 24) : 18;
+  const parsedLines = typeof lines === "string" ? Number.parseInt(lines, 10) : NaN;
+  const lineCount = Number.isFinite(parsedLines) ? Math.max(1, Math.min(5, parsedLines)) : 3;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -63,6 +66,7 @@ router.get("/evaluate/stream", (req, res) => {
   const cleanup = streamEvaluateFen({
     fen,
     depth: cappedDepth,
+    lines: lineCount,
     onUpdate: (evaluation) => {
       const payload = JSON.stringify({ evaluation });
       res.write(`data: ${payload}\n\n`);
