@@ -44,13 +44,13 @@ export default function BoardAnalysisCard({
   blackLabel,
   whiteClock,
   blackClock,
+  engineEnabled = true,
   bestMoveArrows,
   timelineLength,
   currentMoveIndex,
   atEnd,
   isAutoPlaying,
   showBestMoveArrow,
-  engineEnabled = true,
   onSelectMove,
   onToggleAutoPlay,
   onFlipBoard,
@@ -84,6 +84,7 @@ export default function BoardAnalysisCard({
         blackLabel={blackLabel}
         whiteClock={whiteClock}
         blackClock={blackClock}
+        disabled={!engineEnabled}
       />
       <div className="flex justify-center">
         <Chessboard

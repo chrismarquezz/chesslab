@@ -8,6 +8,7 @@ interface EvaluationBarProps {
   blackLabel?: string;
   whiteClock?: string | null;
   blackClock?: string | null;
+  disabled?: boolean;
 }
 
 export default function EvaluationBar({
@@ -17,6 +18,7 @@ export default function EvaluationBar({
   blackLabel = "Black",
   whiteClock,
   blackClock,
+  disabled = false,
 }: EvaluationBarProps) {
   const formatClock = (value?: string | null) => (value && value.trim() ? value : "—");
 
@@ -30,21 +32,27 @@ export default function EvaluationBar({
         <span>{formatClock(whiteClock)}</span>
         <span>{formatClock(blackClock)}</span>
       </div>
-      <div className="relative h-6 border border-gray-300 rounded overflow-hidden bg-white">
-        <div className="absolute inset-0 bg-gray-900" />
-        <div
-          className="absolute inset-y-0 left-0 bg-white transition-all duration-300"
-          style={{ width: `${evaluationPercent * 100}%` }}
-        />
-        <div className="relative z-10 flex h-full text-xs font-semibold">
-          <div className="w-1/2 flex items-center pl-2 text-gray-800">
-            {evaluationPercent >= 0.5 && currentEvaluationScore ? formatScore(currentEvaluationScore) : ""}
-          </div>
-          <div className="w-1/2 flex items-center justify-end pr-2 text-white">
-            {evaluationPercent < 0.5 && currentEvaluationScore ? formatScore(currentEvaluationScore) : ""}
+      {disabled ? (
+        <div className="relative h-6 border border-gray-300 rounded overflow-hidden bg-gray-200 flex items-center justify-center">
+          <span className="text-[11px] font-semibold text-gray-600">Engine disabled</span>
+        </div>
+      ) : (
+        <div className="relative h-6 border border-gray-300 rounded overflow-hidden bg-white">
+          <div className="absolute inset-0 bg-gray-900" />
+          <div
+            className="absolute inset-y-0 left-0 bg-white transition-all duration-300"
+            style={{ width: `${evaluationPercent * 100}%` }}
+          />
+          <div className="relative z-10 flex h-full text-xs font-semibold">
+            <div className="w-1/2 flex items-center pl-2 text-gray-800">
+              {evaluationPercent >= 0.5 && currentEvaluationScore ? formatScore(currentEvaluationScore) : ""}
+            </div>
+            <div className="w-1/2 flex items-center justify-end pr-2 text-white">
+              {evaluationPercent < 0.5 && currentEvaluationScore ? formatScore(currentEvaluationScore) : ""}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -91,7 +91,7 @@ export default function EngineAnalysisCard({
           );
         })}
       </div>
-      <div className="bg-white rounded-b-2xl border border-gray-200 border-t-0 shadow transition-all duration-300 flex flex-col h-[380px] px-5 pb-5 pt-4">
+      <div className="bg-white rounded-b-2xl border border-gray-200 border-t-0 shadow transition-all duration-300 flex flex-col h-[500px] px-5 pb-5 pt-4">
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm font-semibold text-gray-800">Engine</p>
           <button
