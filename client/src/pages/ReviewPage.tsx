@@ -160,6 +160,24 @@ export default function ReviewPage() {
   const moveEvalSourcesRef = useRef<Record<number, EventSource | null>>({});
   const [engineLinesCount, setEngineLinesCount] = useState(3);
   const [engineEnabled, setEngineEnabled] = useState(true);
+  const pieceFolders = useMemo(() => {
+    const glob = import.meta.glob("../../public/pieces/*/wK.svg", { eager: true, as: "url" });
+    const names = Object.keys(glob)
+      .map((path) => {
+        const parts = path.split("/");
+        const idx = parts.findIndex((p) => p === "pieces");
+        return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : null;
+      })
+      .filter((v): v is string => Boolean(v));
+    return Array.from(new Set(names));
+  }, []);
+  const [pieceTheme, setPieceTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("chesslab-piece-theme");
+      if (stored) return stored;
+    }
+    return pieceFolders.includes("cburnett") ? "cburnett" : pieceFolders[0] ?? "merida_new";
+  });
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -403,6 +421,20 @@ export default function ReviewPage() {
   }, [blackDisplayName, fallbackOpening, gameResult?.result, headerEndTime, pgnInput, whiteDisplayName]);
 
   const currentMoveClassification = currentMove ? moveClassifications[currentMove.ply] : undefined;
+  const pieceOptions = useMemo(
+    () => Array.from(new Set([...(pieceFolders.length ? pieceFolders : ["modern"]), pieceTheme])),
+    [pieceFolders, pieceTheme]
+  );
+  const customPieces = useMemo(
+    () =>
+      Object.fromEntries(
+        ["wP", "wN", "wB", "wR", "wQ", "wK", "bP", "bN", "bB", "bR", "bQ", "bK"].map((code) => [
+          code,
+          () => <img src={`/pieces/${pieceTheme}/${code}.svg`} alt={code} className="w-full h-full" />,
+        ])
+      ),
+    [pieceTheme]
+  );
 
   useEffect(() => {
     if (currentEval?.status === "success" && currentMove) {
@@ -997,6 +1029,7 @@ export default function ReviewPage() {
                     boardWidth={boardSize}
                     boardOrientation={boardOrientation}
                     boardColors={BOARD_THEMES[boardTheme]}
+                    customPieces={customPieces}
                     lastMove={lastMoveSquares}
                     lastMoveColor={lastMoveColor}
                     evaluationPercent={evaluationPercent}
@@ -1061,6 +1094,7 @@ export default function ReviewPage() {
                   boardWidth={boardSize}
                   boardOrientation={boardOrientation}
                   boardColors={BOARD_THEMES[boardTheme]}
+                  customPieces={customPieces}
                   lastMove={lastMoveSquares}
                   lastMoveColor={lastMoveColor}
                   evaluationPercent={evaluationPercent}
@@ -1159,6 +1193,15 @@ export default function ReviewPage() {
         }}
         pvCount={engineLinesCount}
         onChangePvCount={(value) => setEngineLinesCount(value)}
+        pieceTheme={pieceTheme}
+        pieceOptions={pieceOptions}
+        onSelectPiece={(key) => {
+          const next = key || "modern";
+          setPieceTheme(next);
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem("chesslab-piece-theme", next);
+          }
+        }}
         onClose={() => setIsThemeModalOpen(false)}
       />
     </>
@@ -1343,4 +1386,7 @@ const BOARD_THEMES: Record<
   dusk: { light: "#ede9fe", dark: "#a78bfa", label: "Dusk" },
   forest: { light: "#e9f5ec", dark: "#8bc9a3", label: "Forest" },
   ocean: { light: "#e6f7ff", dark: "#7cc0d8", label: "Ocean" },
+  sunset: { light: "#ffe8d9", dark: "#f5a962", label: "Sunset" },
+  midnight: { light: "#e8ecf5", dark: "#2f3d55", label: "Midnight" },
+  rose: { light: "#fde9f1", dark: "#f0a4c1", label: "Rose" },
 };

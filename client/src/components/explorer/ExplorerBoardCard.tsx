@@ -11,6 +11,7 @@ interface ExplorerBoardCardProps {
   boardWidth: number;
   boardOrientation: "white" | "black";
   boardColors: { light: string; dark: string };
+  customPieces?: Record<string, React.ReactNode>;
   evaluationPercent: number;
   currentEvaluationScore: EngineScore | null;
   bestMoveArrows: Arrow[];
@@ -31,6 +32,7 @@ export default function ExplorerBoardCard({
   boardWidth,
   boardOrientation,
   boardColors,
+  customPieces,
   evaluationPercent,
   currentEvaluationScore,
   bestMoveArrows,
@@ -69,19 +71,20 @@ export default function ExplorerBoardCard({
         />
       </div>
      <div className="flex justify-center">
-       <Chessboard
-         id="explorer-board"
-          position={boardPosition}
-          boardWidth={boardWidth}
-          boardOrientation={boardOrientation}
-          onPieceDrop={onPieceDrop}
-          onSquareClick={onSquareClick}
-          customDarkSquareStyle={{ backgroundColor: boardColors.dark }}
-          customLightSquareStyle={{ backgroundColor: boardColors.light }}
-          customBoardStyle={{ borderRadius: 0 }}
-          customArrows={bestMoveArrows}
-          customSquareStyles={selectedStyles}
-        />
+      <Chessboard
+        id="explorer-board"
+         position={boardPosition}
+         boardWidth={boardWidth}
+         boardOrientation={boardOrientation}
+         onPieceDrop={onPieceDrop}
+         onSquareClick={onSquareClick}
+         customDarkSquareStyle={{ backgroundColor: boardColors.dark }}
+         customLightSquareStyle={{ backgroundColor: boardColors.light }}
+         customBoardStyle={{ borderRadius: 0 }}
+         customArrows={bestMoveArrows}
+         customSquareStyles={selectedStyles}
+         customPieces={customPieces}
+       />
       </div>
       <div className="flex flex-wrap gap-3 justify-between border-t border-gray-100 pt-4 w-full">
         <div className="flex gap-2">

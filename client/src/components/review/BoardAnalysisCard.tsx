@@ -11,6 +11,7 @@ interface BoardAnalysisCardProps {
   boardColors: { light: string; dark: string };
   lastMove?: { from?: string; to?: string } | null;
   lastMoveColor?: string | null;
+  customPieces?: Record<string, React.ReactNode>;
   evaluationPercent: number;
   currentEvaluationScore: EngineScore | null;
   whiteLabel?: string;
@@ -38,6 +39,7 @@ export default function BoardAnalysisCard({
   boardColors,
   lastMove,
   lastMoveColor,
+  customPieces,
   evaluationPercent,
   currentEvaluationScore,
   whiteLabel,
@@ -97,6 +99,7 @@ export default function BoardAnalysisCard({
           customBoardStyle={{ borderRadius: 0 }}
           customArrows={bestMoveArrows}
           customSquareStyles={customSquareStyles}
+          customPieces={customPieces}
         />
       </div>
       <div className="flex flex-wrap gap-4 items-center border-t border-gray-100 pt-4">

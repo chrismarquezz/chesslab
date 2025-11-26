@@ -1,6 +1,6 @@
 import { type Square } from "chess.js";
 
-export type BoardThemeKey = "modern" | "wood" | "aero" | "dusk" | "forest" | "ocean";
+export type BoardThemeKey = "modern" | "wood" | "aero" | "dusk" | "forest" | "ocean" | "sunset" | "midnight" | "rose";
 
 export type MoveSnapshot = {
   ply: number;

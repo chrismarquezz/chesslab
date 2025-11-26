@@ -13,6 +13,9 @@ interface ThemeSelectorModalProps {
   onSelect: (key: string) => void;
   pvCount: number;
   onChangePvCount: (value: number) => void;
+  pieceTheme: string;
+  pieceOptions: string[];
+  onSelectPiece: (key: string) => void;
   onClose: () => void;
 }
 
@@ -23,9 +26,12 @@ export default function ThemeSelectorModal({
   onSelect,
   pvCount,
   onChangePvCount,
+  pieceTheme,
+  pieceOptions,
+  onSelectPiece,
   onClose,
 }: ThemeSelectorModalProps) {
-  const [tab, setTab] = useState<"theme" | "engine">("theme");
+  const [tab, setTab] = useState<"theme" | "pieces" | "engine">("theme");
   if (!open) return null;
 
   const clampPv = (n: number) => Math.max(1, Math.min(5, Math.round(n)));
@@ -36,7 +42,7 @@ export default function ThemeSelectorModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 space-y-5"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 space-y-5 max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
@@ -57,6 +63,12 @@ export default function ThemeSelectorModal({
             Theme
           </button>
           <button
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${tab === "pieces" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
+            onClick={() => setTab("pieces")}
+          >
+            Pieces
+          </button>
+          <button
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${tab === "engine" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
             onClick={() => setTab("engine")}
           >
@@ -65,7 +77,7 @@ export default function ThemeSelectorModal({
         </div>
 
         {tab === "theme" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-h-72 overflow-y-auto pr-1">
             {Object.entries(themes).map(([key, theme]) => (
               <button
                 key={key}
@@ -81,6 +93,26 @@ export default function ThemeSelectorModal({
                 <p className="text-sm font-semibold text-gray-700">{theme.label}</p>
               </button>
             ))}
+          </div>
+        ) : tab === "pieces" ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
+              {pieceOptions.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => onSelectPiece(key)}
+                  className={`rounded-xl border px-3 py-2 flex flex-col items-center gap-2 transition ${
+                    pieceTheme === key ? "border-[#00bfa6] shadow-md" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex gap-1">
+                    <img src={`/pieces/${key}/wK.svg`} alt="" className="w-7 h-7" />
+                    <img src={`/pieces/${key}/bK.svg`} alt="" className="w-7 h-7" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">{key}</p>
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="space-y-4">

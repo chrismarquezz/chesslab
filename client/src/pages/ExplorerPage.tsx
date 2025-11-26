@@ -24,6 +24,9 @@ const BOARD_THEMES: Record<
   dusk: { light: "#ede9fe", dark: "#a78bfa", label: "Dusk" },
   forest: { light: "#e9f5ec", dark: "#8bc9a3", label: "Forest" },
   ocean: { light: "#e6f7ff", dark: "#7cc0d8", label: "Ocean" },
+  sunset: { light: "#ffe8d9", dark: "#f5a962", label: "Sunset" },
+  midnight: { light: "#e8ecf5", dark: "#2f3d55", label: "Midnight" },
+  rose: { light: "#fde9f1", dark: "#f0a4c1", label: "Rose" },
 };
 
 interface EvaluationDisplay {
@@ -61,6 +64,24 @@ export default function ExplorerPage() {
     }
     return "modern";
   });
+  const pieceFolders = useMemo(() => {
+    const glob = import.meta.glob("../../public/pieces/*/wK.svg", { eager: true, as: "url" });
+    const names = Object.keys(glob)
+      .map((path) => {
+        const parts = path.split("/");
+        const idx = parts.findIndex((p) => p === "pieces");
+        return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : null;
+      })
+      .filter((v): v is string => Boolean(v));
+    return Array.from(new Set(names));
+  }, []);
+  const [pieceTheme, setPieceTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("chesslab-piece-theme");
+      if (stored) return stored;
+    }
+    return pieceFolders.includes("cburnett") ? "cburnett" : pieceFolders[0] ?? "merida_new";
+  });
 
   useEffect(() => {
     const resize = () => {
@@ -77,6 +98,26 @@ export default function ExplorerPage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("chesslab-theme", boardTheme);
   }, [boardTheme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("chesslab-piece-theme", pieceTheme);
+  }, [pieceTheme]);
+
+  const pieceOptions = useMemo(
+    () => Array.from(new Set([...(pieceFolders.length ? pieceFolders : ["modern"]), pieceTheme])),
+    [pieceFolders, pieceTheme]
+  );
+  const customPieces = useMemo(
+    () =>
+      Object.fromEntries(
+        ["wP", "wN", "wB", "wR", "wQ", "wK", "bP", "bN", "bB", "bR", "bQ", "bK"].map((code) => [
+          code,
+          () => <img src={`/pieces/${pieceTheme}/${code}.svg`} alt={code} className="w-full h-full" />,
+        ])
+      ),
+    [pieceTheme]
+  );
 
   const movePairs = useMemo<MovePair[]>(() => {
     const pairs: MovePair[] = [];
@@ -344,6 +385,7 @@ export default function ExplorerPage() {
                 boardWidth={boardSize}
                 boardOrientation={boardOrientation}
                 boardColors={boardColors}
+                customPieces={customPieces}
                 evaluationPercent={evaluationPercent}
                 currentEvaluationScore={currentScore}
                 bestMoveArrows={arrows}
@@ -374,6 +416,7 @@ export default function ExplorerPage() {
                 boardWidth={boardSize}
                 boardOrientation={boardOrientation}
                 boardColors={boardColors}
+                customPieces={customPieces}
                 evaluationPercent={evaluationPercent}
                 currentEvaluationScore={currentScore}
                 bestMoveArrows={arrows}
@@ -415,6 +458,9 @@ export default function ExplorerPage() {
         }}
         pvCount={engineLinesCount}
         onChangePvCount={(value) => setEngineLinesCount(value)}
+        pieceTheme={pieceTheme}
+        pieceOptions={pieceOptions}
+        onSelectPiece={(key) => setPieceTheme(key || (pieceFolders[0] ?? "modern"))}
         onClose={() => setIsThemeModalOpen(false)}
       />
 
