@@ -1,6 +1,6 @@
 import { Chessboard } from "react-chessboard";
 import { ArrowUpDown, CornerUpLeft, Lightbulb, RotateCcw, Settings } from "lucide-react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import type { Square } from "chess.js";
 import type { Arrow, EngineScore } from "../../types/review";
 import BoardControlButton from "../review/BoardControlButton";
@@ -11,7 +11,7 @@ interface ExplorerBoardCardProps {
   boardWidth: number;
   boardOrientation: "white" | "black";
   boardColors: { light: string; dark: string };
-  customPieces?: Record<string, (props: { squareWidth: number }) => JSX.Element>;
+  customPieces?: Record<string, (props: { squareWidth: number }) => ReactElement>;
   evaluationPercent: number;
   currentEvaluationScore: EngineScore | null;
   bestMoveArrows: Arrow[];

@@ -1,10 +1,11 @@
 import { Chessboard } from "react-chessboard";
 import { ArrowUpDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Lightbulb, Pause, Play, Settings } from "lucide-react";
+import type { ReactElement } from "react";
 import type { Arrow, EngineScore } from "../../types/review";
 import BoardControlButton from "./BoardControlButton";
 import EvaluationBar from "./EvaluationBar";
 
-type PieceRenderMap = Record<string, (props: { squareWidth: number }) => JSX.Element>;
+type PieceRenderMap = Record<string, (props: { squareWidth: number }) => ReactElement>;
 
 interface BoardAnalysisCardProps {
   boardPosition: string;
