@@ -17,6 +17,7 @@ interface ThemeSelectorModalProps {
   pieceOptions: string[];
   onSelectPiece: (key: string) => void;
   onClose: () => void;
+  hideEngineTab?: boolean;
 }
 
 export default function ThemeSelectorModal({
@@ -30,8 +31,10 @@ export default function ThemeSelectorModal({
   pieceOptions,
   onSelectPiece,
   onClose,
+  hideEngineTab = false,
 }: ThemeSelectorModalProps) {
   const [tab, setTab] = useState<"theme" | "pieces" | "engine">("theme");
+  const effectiveTab = hideEngineTab && tab === "engine" ? "theme" : tab;
   if (!open) return null;
 
   const clampPv = (n: number) => Math.max(1, Math.min(5, Math.round(n)));
@@ -57,26 +60,28 @@ export default function ThemeSelectorModal({
 
         <div className="flex gap-2 bg-gray-50 border border-gray-200 rounded-xl p-1">
           <button
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${tab === "theme" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${effectiveTab === "theme" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
             onClick={() => setTab("theme")}
           >
             Theme
           </button>
           <button
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${tab === "pieces" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${effectiveTab === "pieces" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
             onClick={() => setTab("pieces")}
           >
             Pieces
           </button>
-          <button
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${tab === "engine" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
-            onClick={() => setTab("engine")}
-          >
-            Engine
-          </button>
+          {!hideEngineTab && (
+            <button
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${effectiveTab === "engine" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
+              onClick={() => setTab("engine")}
+            >
+              Engine
+            </button>
+          )}
         </div>
 
-        {tab === "theme" ? (
+        {effectiveTab === "theme" ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-h-72 overflow-y-auto pr-1">
             {Object.entries(themes).map(([key, theme]) => (
               <button
@@ -94,7 +99,7 @@ export default function ThemeSelectorModal({
               </button>
             ))}
           </div>
-        ) : tab === "pieces" ? (
+        ) : effectiveTab === "pieces" ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
               {pieceOptions.map((key) => (

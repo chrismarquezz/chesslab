@@ -9,6 +9,7 @@ interface EvaluationBarProps {
   whiteClock?: string | null;
   blackClock?: string | null;
   disabled?: boolean;
+  disabledMessage?: string;
 }
 
 export default function EvaluationBar({
@@ -19,25 +20,30 @@ export default function EvaluationBar({
   whiteClock,
   blackClock,
   disabled = false,
+  disabledMessage = "Engine disabled",
 }: EvaluationBarProps) {
   const formatClock = (value?: string | null) => (value && value.trim() ? value : "—");
 
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between text-sm font-semibold text-gray-700">
-        <span>{whiteLabel}</span>
-        <span>{blackLabel}</span>
-      </div>
-      <div className="flex justify-between text-xs text-gray-700 font-mono">
-        <span>{formatClock(whiteClock)}</span>
-        <span>{formatClock(blackClock)}</span>
-      </div>
+      {(whiteLabel || blackLabel) && (
+        <div className="flex justify-between text-sm font-semibold text-gray-700">
+          <span>{whiteLabel}</span>
+          <span>{blackLabel}</span>
+        </div>
+      )}
+      {(whiteClock || blackClock) && (
+        <div className="flex justify-between text-xs text-gray-700 font-mono">
+          <span>{formatClock(whiteClock)}</span>
+          <span>{formatClock(blackClock)}</span>
+        </div>
+      )}
       {disabled ? (
-        <div className="relative h-6 border border-gray-300 rounded overflow-hidden bg-gray-200 flex items-center justify-center">
-          <span className="text-[11px] font-semibold text-gray-600">Engine disabled</span>
+        <div className="relative h-8 border border-gray-300 rounded overflow-hidden bg-gray-200 flex items-center justify-center">
+          <span className="text-sm font-semibold text-gray-700">{disabledMessage}</span>
         </div>
       ) : (
-        <div className="relative h-6 border border-gray-300 rounded overflow-hidden bg-white">
+        <div className="relative h-8 border border-gray-300 rounded overflow-hidden bg-white">
           <div className="absolute inset-0 bg-gray-900" />
           <div
             className="absolute inset-y-0 left-0 bg-white transition-all duration-300"

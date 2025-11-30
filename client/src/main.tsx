@@ -7,6 +7,7 @@ import App from "./App"; // Home page
 import ComparePage from "./pages/ComparePage"; // Compare page (future)
 import ReviewPage from "./pages/ReviewPage"; // Game review page
 import ExplorerPage from "./pages/ExplorerPage"; // Free-play explorer
+import PuzzleTrainerPage from "./pages/PuzzleTrainerPage"; // Puzzle trainer
 import "./index.css";
 
 // ✅ Define routes
@@ -16,6 +17,7 @@ const router = createBrowserRouter([
   { path: "/compare", element: <ComparePage /> },
   { path: "/review", element: <ReviewPage /> },
   { path: "/explorer", element: <ExplorerPage /> },
+  { path: "/puzzles", element: <PuzzleTrainerPage /> },
 ]);
 
 // ✅ Mount app

@@ -18,15 +18,15 @@ const BOARD_THEMES: Record<
     label: string;
   }
 > = {
-  modern: { light: "#f5f7fa", dark: "#aeb8c2", label: "Modern" },
-  wood: { light: "#f6e8d0", dark: "#c49c6b", label: "Wood" },
-  aero: { light: "#e3f2fd", dark: "#90a4ae", label: "Aero" },
-  dusk: { light: "#ede9fe", dark: "#a78bfa", label: "Dusk" },
-  forest: { light: "#e9f5ec", dark: "#8bc9a3", label: "Forest" },
-  ocean: { light: "#e6f7ff", dark: "#7cc0d8", label: "Ocean" },
-  sunset: { light: "#ffe8d9", dark: "#f5a962", label: "Sunset" },
-  midnight: { light: "#e8ecf5", dark: "#2f3d55", label: "Midnight" },
-  rose: { light: "#fde9f1", dark: "#f0a4c1", label: "Rose" },
+  modern: { light: "#f2f2f2", dark: "#777777", label: "Modern" },
+  wood: { light: "#ede0c8", dark: "#b58863", label: "Wood" },
+  aero: { light: "#dce3ea", dark: "#6b829c", label: "Aero" },
+  dusk: { light: "#f0d9b5", dark: "#b58863", label: "Dusk" },
+  forest: { light: "#e2f0d9", dark: "#779556", label: "Forest" },
+  ocean: { light: "#e8f5ff", dark: "#2b6ca3", label: "Ocean" },
+  sunset: { light: "#fce8d5", dark: "#d47455", label: "Sunset" },
+  midnight: { light: "#cbd5e1", dark: "#1f2937", label: "Midnight" },
+  rose: { light: "#fce7f3", dark: "#be185d", label: "Rose" },
 };
 
 interface EvaluationDisplay {

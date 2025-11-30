@@ -245,6 +245,21 @@ export default function App() {
           </section>
         )}
 
+        <section className="bg-white border border-gray-200 shadow rounded-2xl p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Puzzle trainer</h3>
+              <p className="text-sm text-gray-600">Review tactics from your own games.</p>
+            </div>
+            <button
+              onClick={() => navigate("/puzzles")}
+              className="inline-flex items-center justify-center rounded-xl bg-[#00bfa6] text-white font-semibold px-5 py-2.5 shadow hover:bg-[#00a58f] transition"
+            >
+              Train
+            </button>
+          </div>
+        </section>
+
         <section className="bg-white border border-gray-200 shadow rounded-2xl p-6 mt-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
             <div>

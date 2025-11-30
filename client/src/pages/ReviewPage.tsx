@@ -9,7 +9,7 @@ import BoardAnalysisCard from "../components/review/BoardAnalysisCard";
 import MoveQualityCard from "../components/review/MoveQualityCard";
 import MoveListCard, { type MovePair } from "../components/review/MoveListCard";
 import EngineAnalysisCard from "../components/review/EngineAnalysisCard";
-import { Clock3 } from "lucide-react";
+import { Clock3, Keyboard } from "lucide-react";
 import type {
   BoardThemeKey,
   BookMoveStatus,
@@ -430,6 +430,15 @@ export default function ReviewPage() {
     [pieceFolders, pieceTheme]
   );
   const { profile, username } = useUser();
+  const updateOrientationForUser = useCallback(() => {
+    const userLower = username?.toLowerCase?.().trim();
+    if (!userLower) return;
+    if (playerNames.white?.toLowerCase?.() === userLower) {
+      setBoardOrientation("white");
+    } else if (playerNames.black?.toLowerCase?.() === userLower) {
+      setBoardOrientation("black");
+    }
+  }, [playerNames.black, playerNames.white, username]);
   const customPieces = useMemo(
     () =>
       Object.fromEntries(
@@ -447,6 +456,10 @@ export default function ReviewPage() {
       ),
     [pieceTheme]
   );
+
+  useEffect(() => {
+    updateOrientationForUser();
+  }, [updateOrientationForUser]);
 
   useEffect(() => {
     if (currentEval?.status === "success" && currentMove) {
@@ -870,6 +883,9 @@ export default function ReviewPage() {
       if (event.key === " " || event.code === "Space" || event.key === "Spacebar") {
         event.preventDefault();
         handleToggleAutoPlay();
+      } else if (event.key.toLowerCase() === "h") {
+        event.preventDefault();
+        setShowBestMoveArrow((prev) => !prev);
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         handleSelectMove(Math.max(currentMoveIndex - 1, -1));
@@ -1034,6 +1050,22 @@ export default function ReviewPage() {
                     moveClassifications={moveClassifications}
                     bookStatuses={bookStatusByPly}
                   />
+                  <div className="relative group/shortcuts w-full">
+                    <button className="mt-1 px-3 py-2 w-full text-xs font-semibold border border-gray-200 rounded-lg bg-white text-gray-700 shadow hover:bg-gray-50 flex items-center justify-center gap-2">
+                      <Keyboard className="h-4 w-4" />
+                      <span>Shortcuts</span>
+                    </button>
+                    <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 opacity-0 group-hover/shortcuts:opacity-100 transition-opacity duration-150 z-50">
+                      <div className="rounded-xl border border-gray-200 bg-white shadow-lg p-3 text-xs text-gray-800 min-w-[180px] space-y-1">
+                        <div className="flex justify-between gap-3"><span>Start/Pause</span><span className="font-semibold">Space</span></div>
+                        <div className="flex justify-between gap-3"><span>Prev / Next</span><span className="font-semibold">← / →</span></div>
+                        <div className="flex justify-between gap-3"><span>First / Last</span><span className="font-semibold">↑ / ↓</span></div>
+                        <div className="flex justify-between gap-3"><span>Toggle Hint Arrow</span><span className="font-semibold">H</span></div>
+                        <div className="flex justify-between gap-3"><span>Flip Board</span><span className="font-semibold">F</span></div>
+                        <div className="flex justify-between gap-3"><span>Settings</span><span className="font-semibold">S</span></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-4 items-center" style={{ width: boardCardWidth }}>
                   <BoardAnalysisCard
@@ -1139,12 +1171,28 @@ export default function ReviewPage() {
                   moveClassifications={moveClassifications}
                   bookStatuses={bookStatusByPly}
                 />
-                {fullReviewDone ? (
-                  <MoveQualityCard
-                    move={currentMove}
-                    classification={currentMoveClassification}
-                    awaitingEvaluation={Boolean(currentMove && !currentMoveClassification && !bookStatusByPly[currentMove.ply])}
-                    bookStatus={currentMove ? bookStatusByPly[currentMove.ply] : undefined}
+                <div className="relative group/shortcuts w-full">
+                  <button className="mt-1 px-3 py-2 w-full text-xs font-semibold border border-gray-200 rounded-lg bg-white text-gray-700 shadow hover:bg-gray-50 flex items-center justify-center gap-2">
+                    <Keyboard className="h-4 w-4" />
+                    <span>Shortcuts</span>
+                  </button>
+                  <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 opacity-0 group-hover/shortcuts:opacity-100 transition-opacity duration-150 z-50">
+                    <div className="rounded-xl border border-gray-200 bg-white shadow-lg p-3 text-xs text-gray-800 min-w-[180px] space-y-1">
+                      <div className="flex justify-between gap-3"><span>Start/Pause</span><span className="font-semibold">Space</span></div>
+                      <div className="flex justify-between gap-3"><span>Prev / Next</span><span className="font-semibold">← / →</span></div>
+                      <div className="flex justify-between gap-3"><span>First / Last</span><span className="font-semibold">↑ / ↓</span></div>
+                      <div className="flex justify-between gap-3"><span>Toggle Hint Arrow</span><span className="font-semibold">H</span></div>
+                      <div className="flex justify-between gap-3"><span>Flip Board</span><span className="font-semibold">F</span></div>
+                      <div className="flex justify-between gap-3"><span>Settings</span><span className="font-semibold">S</span></div>
+                    </div>
+                  </div>
+                </div>
+              {fullReviewDone ? (
+                <MoveQualityCard
+                  move={currentMove}
+                  classification={currentMoveClassification}
+                  awaitingEvaluation={Boolean(currentMove && !currentMoveClassification && !bookStatusByPly[currentMove.ply])}
+                  bookStatus={currentMove ? bookStatusByPly[currentMove.ply] : undefined}
                   />
                 ) : (
                   <div className="bg-white rounded-2xl border border-gray-200 shadow p-5 space-y-3">
@@ -1392,13 +1440,13 @@ const BOARD_THEMES: Record<
     label: string;
   }
 > = {
-  modern: { light: "#f5f7fa", dark: "#aeb8c2", label: "Modern" },
-  wood: { light: "#f6e8d0", dark: "#c49c6b", label: "Wood" },
-  aero: { light: "#e3f2fd", dark: "#90a4ae", label: "Aero" },
-  dusk: { light: "#ede9fe", dark: "#a78bfa", label: "Dusk" },
-  forest: { light: "#e9f5ec", dark: "#8bc9a3", label: "Forest" },
-  ocean: { light: "#e6f7ff", dark: "#7cc0d8", label: "Ocean" },
-  sunset: { light: "#ffe8d9", dark: "#f5a962", label: "Sunset" },
-  midnight: { light: "#e8ecf5", dark: "#2f3d55", label: "Midnight" },
-  rose: { light: "#fde9f1", dark: "#f0a4c1", label: "Rose" },
+  modern: { light: "#f2f2f2", dark: "#777777", label: "Modern" },
+  wood: { light: "#ede0c8", dark: "#b58863", label: "Wood" },
+  aero: { light: "#dce3ea", dark: "#6b829c", label: "Aero" },
+  dusk: { light: "#f0d9b5", dark: "#b58863", label: "Dusk" },
+  forest: { light: "#e2f0d9", dark: "#779556", label: "Forest" },
+  ocean: { light: "#e8f5ff", dark: "#2b6ca3", label: "Ocean" },
+  sunset: { light: "#fce8d5", dark: "#d47455", label: "Sunset" },
+  midnight: { light: "#cbd5e1", dark: "#1f2937", label: "Midnight" },
+  rose: { light: "#fce7f3", dark: "#be185d", label: "Rose" },
 };
