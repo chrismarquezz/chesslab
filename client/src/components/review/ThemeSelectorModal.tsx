@@ -15,6 +15,7 @@ interface ThemeSelectorModalProps {
   onChangePvCount: (value: number) => void;
   pieceTheme: string;
   pieceOptions: string[];
+  piecePreviews?: Record<string, { white?: string; black?: string }>;
   onSelectPiece: (key: string) => void;
   onClose: () => void;
   hideEngineTab?: boolean;
@@ -29,6 +30,7 @@ export default function ThemeSelectorModal({
   onChangePvCount,
   pieceTheme,
   pieceOptions,
+  piecePreviews,
   onSelectPiece,
   onClose,
   hideEngineTab = false,
@@ -111,8 +113,8 @@ export default function ThemeSelectorModal({
                   }`}
                 >
                   <div className="flex gap-1">
-                    <img src={`/pieces/${key}/wK.svg`} alt="" className="w-7 h-7" />
-                    <img src={`/pieces/${key}/bK.svg`} alt="" className="w-7 h-7" />
+                    <img src={piecePreviews?.[key]?.white ?? ""} alt="" className="w-7 h-7" />
+                    <img src={piecePreviews?.[key]?.black ?? ""} alt="" className="w-7 h-7" />
                   </div>
                   <p className="text-sm font-semibold text-gray-700">{key}</p>
                 </button>

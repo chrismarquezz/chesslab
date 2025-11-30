@@ -7,7 +7,7 @@ import Navbar from "../components/Navbar";
 import EvaluationBar from "../components/review/EvaluationBar";
 import { useUser } from "../context/UserContext";
 import type { EngineEvaluation, MoveSnapshot, EngineScore, BoardThemeKey } from "../types/review";
-import { buildTimelineFromPgn, formatScore, getEvalPercent, getMateWinner, mergeSampleEvaluations, scoreToCentipawns } from "../utils/reviewEngine";
+import { buildTimelineFromPgn, formatScore, formatPvLines, getEvalPercent, getMateWinner, mergeSampleEvaluations, scoreToCentipawns } from "../utils/reviewEngine";
 import { Settings, Clock3 } from "lucide-react";
 import ThemeSelectorModal from "../components/review/ThemeSelectorModal";
 import type { GameAnalysisResponse } from "../types/review";
@@ -168,17 +168,27 @@ export default function PuzzleTrainerPage() {
   const wrongTimeoutRef = useRef<number | null>(null);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [hydratedFromCache, setHydratedFromCache] = useState(false);
-  const pieceFolders = useMemo(() => {
-    const glob = import.meta.glob("/pieces/*/wK.svg", { eager: true, import: "default", query: "?url" });
-    const names = Object.keys(glob)
-      .map((path) => {
-        const parts = path.split("/");
-        const idx = parts.findIndex((p) => p === "pieces");
-        return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : null;
-      })
-      .filter((v): v is string => Boolean(v));
-    return Array.from(new Set(names));
+  const pieceAssets = useMemo(() => {
+    const glob = import.meta.glob("../assets/pieces/*/*.svg", { eager: true, import: "default" });
+    const map: Record<string, Record<string, string>> = {};
+    Object.entries(glob).forEach(([path, mod]) => {
+      const parts = path.split("/");
+      const setName = parts[parts.length - 2];
+      const file = parts[parts.length - 1].replace(".svg", "");
+      if (!map[setName]) map[setName] = {};
+      map[setName][file] = mod as string;
+    });
+    return map;
   }, []);
+  const pieceFolders = useMemo(() => Object.keys(pieceAssets).sort(), [pieceAssets]);
+  const piecePreviews = useMemo(
+    () =>
+      pieceFolders.reduce<Record<string, { white?: string; black?: string }>>((acc, key) => {
+        acc[key] = { white: pieceAssets[key]?.wK, black: pieceAssets[key]?.bK };
+        return acc;
+      }, {}),
+    [pieceAssets, pieceFolders]
+  );
   const [pieceTheme, setPieceTheme] = useState(() => {
     if (typeof window !== "undefined") {
       const stored = window.localStorage.getItem("chesslab-piece-theme");
@@ -198,23 +208,22 @@ export default function PuzzleTrainerPage() {
     return "modern";
   });
   const [engineLinesCount, setEngineLinesCount] = useState(3);
-  const customPieces = useMemo(
-    () =>
-      Object.fromEntries(
-        ["wP", "wN", "wB", "wR", "wQ", "wK", "bP", "bN", "bB", "bR", "bQ", "bK"].map((code) => [
-          code,
-          (props: { squareWidth: number }) => (
-            <img
-              src={`/pieces/${pieceTheme}/${code}.svg`}
-              alt={code}
-              className="w-full h-full"
-              style={{ width: props.squareWidth, height: props.squareWidth }}
-            />
-          ),
-        ])
-      ),
-    [pieceTheme]
-  );
+  const customPieces = useMemo(() => {
+    const set = pieceAssets[pieceTheme] || {};
+    return Object.fromEntries(
+      ["wP", "wN", "wB", "wR", "wQ", "wK", "bP", "bN", "bB", "bR", "bQ", "bK"].map((code) => [
+        code,
+        (props: { squareWidth: number }) => (
+          <img
+            src={set[code] || ""}
+            alt={code}
+            className="w-full h-full"
+            style={{ width: props.squareWidth, height: props.squareWidth }}
+          />
+        ),
+      ])
+    );
+  }, [pieceAssets, pieceTheme]);
 
   const currentPuzzle = puzzles[currentIndex];
 
@@ -304,6 +313,9 @@ export default function PuzzleTrainerPage() {
 
         if (!isMateBlunder && !isMateMiss && (loss == null || loss < 200)) return;
         if (!prevEval.bestMove) return;
+        const playedUci = (move.uci ?? "").toLowerCase();
+        const bestUci = prevEval.bestMove.toLowerCase();
+        if (bestUci.slice(0, 4) === playedUci.slice(0, 4)) return;
 
         const description = buildWhatHappenedText(prevCp, currCp, mover);
         const timeSpentLabel = deriveTimeSpent(move, timeline);
@@ -601,6 +613,7 @@ export default function PuzzleTrainerPage() {
   const evalPercent = activeEvaluationScore ? getEvalPercent(activeEvaluationScore, activeEvalMateWinner) : 0.5;
   const moverLabel = currentPuzzle?.mover ? `${currentPuzzle.mover.charAt(0).toUpperCase()}${currentPuzzle.mover.slice(1)}` : "Side";
   const boardColors = BOARD_THEMES[boardTheme] ?? BOARD_THEMES.modern;
+
   useEffect(() => {
     const resizeBoard = () => {
       const container = boardContainerRef.current;
@@ -630,7 +643,15 @@ export default function PuzzleTrainerPage() {
   }, []);
 
   useEffect(() => {
-    if (!boardPosition) return;
+    if (!solved || !boardPosition) {
+      if (evalSourceRef.current) {
+        evalSourceRef.current.close();
+        evalSourceRef.current = null;
+      }
+      setLiveEvaluation(null);
+      setEngineStatus("idle");
+      return;
+    }
     if (evalSourceRef.current) {
       evalSourceRef.current.close();
       evalSourceRef.current = null;
@@ -669,7 +690,7 @@ export default function PuzzleTrainerPage() {
       source.close();
       evalSourceRef.current = null;
     };
-  }, [API_BASE_URL, boardPosition, engineLinesCount]);
+  }, [API_BASE_URL, boardPosition, engineLinesCount, solved]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 pb-12">
@@ -743,20 +764,6 @@ export default function PuzzleTrainerPage() {
                 <div className="bg-white rounded-2xl border border-gray-200 shadow p-4">
                   <p className="text-xs uppercase tracking-wide text-gray-500">What happened</p>
                   <p className="text-sm text-gray-900 mt-2">{currentPuzzle.description}</p>
-                  <div className="mt-3 text-xs text-gray-700 space-y-1">
-                    <div className="flex items-center gap-3">
-                      <span className="text-gray-500">Before:</span>
-                      <span className="px-2 py-1 rounded-full bg-gray-100 border border-gray-200 font-semibold">
-                        {formatScore(currentPuzzle.score ?? null)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-gray-500">After played move:</span>
-                      <span className="px-2 py-1 rounded-full bg-gray-100 border border-gray-200 font-semibold">
-                        {formatScore(currentPuzzle.playedScore ?? null)}
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="flex gap-3 w-full">
@@ -829,7 +836,7 @@ export default function PuzzleTrainerPage() {
                   <div className="flex items-center justify-between text-sm font-semibold text-gray-900">
                     <span>Progress</span>
                     <span className="text-[#00bfa6]">
-                      {puzzleResults.filter((r) => r !== null).length}/{puzzles.length}
+                      {puzzles.length ? currentIndex + 1 : 0}/{puzzles.length}
                     </span>
                   </div>
                   <div className="grid grid-cols-10 gap-1 max-h-28 overflow-y-auto pr-1">
@@ -842,6 +849,42 @@ export default function PuzzleTrainerPage() {
                       />
                     ))}
                   </div>
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-200 shadow p-4 flex flex-col gap-3 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900">Evaluation</p>
+                  </div>
+                  {solved ? (
+                    <div className="space-y-3 text-sm text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Eval:</span>
+                        <span className="px-2 py-1 rounded-full bg-gray-100 border border-gray-200 font-semibold">
+                          {formatScore(liveEvaluation?.score ?? null)}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-gray-600 text-xs uppercase">Top line</div>
+                        <div className="px-2 py-2 rounded-lg border border-gray-200 bg-gray-50 font-mono text-xs">
+                          {formatPvLines(liveEvaluation?.pv ?? [], boardPosition, 12).join(" ")}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 text-sm text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Original eval:</span>
+                        <span className="px-2 py-1 rounded-full bg-gray-100 border border-gray-200 font-semibold">
+                          {formatScore(currentPuzzle.playedScore ?? null)}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-gray-600 text-xs uppercase">PV</div>
+                        <div className="px-2 py-2 rounded-lg border border-gray-200 bg-gray-50 font-mono text-xs">
+                          {formatPvLines(currentPuzzle.playedScore?.pv ?? [], currentPuzzle.fen, 12).join(" ")}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -864,6 +907,7 @@ export default function PuzzleTrainerPage() {
         onChangePvCount={(value) => setEngineLinesCount(value)}
         pieceTheme={pieceTheme}
         pieceOptions={pieceOptions}
+        piecePreviews={piecePreviews}
         onSelectPiece={(key) => {
           const next = key || "modern";
           setPieceTheme(next);

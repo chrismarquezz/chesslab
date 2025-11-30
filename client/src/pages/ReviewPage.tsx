@@ -162,17 +162,27 @@ export default function ReviewPage() {
   const moveEvalSourcesRef = useRef<Record<number, EventSource | null>>({});
   const [engineLinesCount, setEngineLinesCount] = useState(3);
   const [engineEnabled, setEngineEnabled] = useState(true);
-  const pieceFolders = useMemo(() => {
-    const glob = import.meta.glob("/pieces/*/wK.svg", { eager: true, import: "default", query: "?url" });
-    const names = Object.keys(glob)
-      .map((path) => {
-        const parts = path.split("/");
-        const idx = parts.findIndex((p) => p === "pieces");
-        return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : null;
-      })
-      .filter((v): v is string => Boolean(v));
-    return Array.from(new Set(names));
+  const pieceAssets = useMemo(() => {
+    const glob = import.meta.glob("../assets/pieces/*/*.svg", { eager: true, import: "default" });
+    const map: Record<string, Record<string, string>> = {};
+    Object.entries(glob).forEach(([path, mod]) => {
+      const parts = path.split("/");
+      const setName = parts[parts.length - 2];
+      const file = parts[parts.length - 1].replace(".svg", "");
+      if (!map[setName]) map[setName] = {};
+      map[setName][file] = mod as string;
+    });
+    return map;
   }, []);
+  const pieceFolders = useMemo(() => Object.keys(pieceAssets).sort(), [pieceAssets]);
+  const piecePreviews = useMemo(
+    () =>
+      pieceFolders.reduce<Record<string, { white?: string; black?: string }>>((acc, key) => {
+        acc[key] = { white: pieceAssets[key]?.wK, black: pieceAssets[key]?.bK };
+        return acc;
+      }, {}),
+    [pieceAssets, pieceFolders]
+  );
   const [pieceTheme, setPieceTheme] = useState(() => {
     if (typeof window !== "undefined") {
       const stored = window.localStorage.getItem("chesslab-piece-theme");
@@ -440,21 +450,23 @@ export default function ReviewPage() {
     }
   }, [playerNames.black, playerNames.white, username]);
   const customPieces = useMemo(
-    () =>
-      Object.fromEntries(
+    () => {
+      const set = pieceAssets[pieceTheme] || {};
+      return Object.fromEntries(
         ["wP", "wN", "wB", "wR", "wQ", "wK", "bP", "bN", "bB", "bR", "bQ", "bK"].map((code) => [
           code,
           (props: { squareWidth: number }) => (
             <img
-              src={`/pieces/${pieceTheme}/${code}.svg`}
+              src={set[code] || ""}
               alt={code}
               className="w-full h-full"
               style={{ width: props.squareWidth, height: props.squareWidth }}
             />
           ),
         ])
-      ),
-    [pieceTheme]
+      );
+    },
+    [pieceAssets, pieceTheme]
   );
 
   useEffect(() => {
@@ -1255,6 +1267,7 @@ export default function ReviewPage() {
         onChangePvCount={(value) => setEngineLinesCount(value)}
         pieceTheme={pieceTheme}
         pieceOptions={pieceOptions}
+        piecePreviews={piecePreviews}
         onSelectPiece={(key) => {
           const next = key || "modern";
           setPieceTheme(next);
