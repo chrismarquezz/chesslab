@@ -99,7 +99,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           getRatingHistory(target, "blitz"),
           getRatingHistory(target, "rapid"),
           getRatingHistory(target, "bullet"),
-          getRecentGames(target, undefined, 0, 50),
+          getRecentGames(target, undefined, 0, 200),
         ]);
 
         setProfile(profileData);
@@ -141,7 +141,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setLoadMoreLoading(true);
     setGamesError(null);
     try {
-      const more = await getRecentGames(target, archivesCache ?? undefined, archiveIndex, 50);
+      const more = await getRecentGames(target, archivesCache ?? undefined, archiveIndex, 200);
       const combined = [...games, ...more.games];
       const deduped = Array.from(new Map(combined.map((g) => [g.url, g])).values()).sort(
         (a, b) => (b.end_time ?? 0) - (a.end_time ?? 0)

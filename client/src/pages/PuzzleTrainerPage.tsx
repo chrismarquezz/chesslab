@@ -7,7 +7,7 @@ import Navbar from "../components/Navbar";
 import EvaluationBar from "../components/review/EvaluationBar";
 import { useUser } from "../context/UserContext";
 import type { EngineEvaluation, MoveSnapshot, EngineScore, BoardThemeKey } from "../types/review";
-import { buildTimelineFromPgn, getEvalPercent, getMateWinner, mergeSampleEvaluations, scoreToCentipawns } from "../utils/reviewEngine";
+import { buildTimelineFromPgn, formatScore, getEvalPercent, getMateWinner, mergeSampleEvaluations, scoreToCentipawns } from "../utils/reviewEngine";
 import { Settings, Clock3 } from "lucide-react";
 import ThemeSelectorModal from "../components/review/ThemeSelectorModal";
 import type { GameAnalysisResponse } from "../types/review";
@@ -49,6 +49,7 @@ type Puzzle = {
   };
   timeSpentLabel: string;
   score: EngineScore | null;
+  playedScore: EngineScore | null;
 };
 
 function parseClockToSeconds(clock?: string | null): number | null {
@@ -230,6 +231,11 @@ export default function PuzzleTrainerPage() {
       if (seenKeys.has(key)) return;
       seenKeys.add(key);
       allPuzzles.push(p);
+      setPuzzles((prev) => {
+        const exists = prev.some((item) => `${item.fen}-${item.moveNumber}-${item.playedMove}` === key);
+        if (exists) return prev;
+        return [...prev, p];
+      });
     };
 
     const processGame = async (game: any) => {
@@ -307,6 +313,7 @@ export default function PuzzleTrainerPage() {
           description,
           timeSpentLabel,
           score: prevEval.score ?? null,
+          playedScore: currEval.score ?? null,
           gameMeta: {
             white: game.white?.username ?? "White",
             whiteRating: game.white?.rating,
@@ -685,6 +692,20 @@ export default function PuzzleTrainerPage() {
                 <div className="bg-white rounded-2xl border border-gray-200 shadow p-4">
                   <p className="text-xs uppercase tracking-wide text-gray-500">What happened</p>
                   <p className="text-sm text-gray-900 mt-2">{currentPuzzle.description}</p>
+                  <div className="mt-3 text-xs text-gray-700 space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500">Before:</span>
+                      <span className="px-2 py-1 rounded-full bg-gray-100 border border-gray-200 font-semibold">
+                        {formatScore(currentPuzzle.score ?? null)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500">After played move:</span>
+                      <span className="px-2 py-1 rounded-full bg-gray-100 border border-gray-200 font-semibold">
+                        {formatScore(currentPuzzle.playedScore ?? null)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 w-full">
@@ -760,11 +781,12 @@ export default function PuzzleTrainerPage() {
                       {puzzleResults.filter((r) => r !== null).length}/{puzzles.length}
                     </span>
                   </div>
-                  <div className="grid grid-cols-10 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-10 gap-1 max-h-28 overflow-y-auto pr-1">
                     {puzzleResults.map((res, idx) => (
                       <div
                         key={idx}
-                        className={`aspect-square rounded ${res === null ? "bg-gray-100 border border-dashed border-gray-200" : res ? "bg-[#00bfa6]" : "bg-red-500"}`}
+                        onClick={() => setCurrentIndex(idx)}
+                        className={`aspect-square rounded cursor-pointer ${res === null ? "bg-gray-100 border border-dashed border-gray-200" : res ? "bg-[#00bfa6]" : "bg-red-500"}`}
                         title={`Puzzle ${idx + 1}`}
                       />
                     ))}

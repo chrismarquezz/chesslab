@@ -14,7 +14,7 @@ export async function getStats(username: string) {
   return data;
 }
 
-export async function getRecentGames(username: string, archives?: string[], startIndex = 0, limit = 50) {
+export async function getRecentGames(username: string, archives?: string[], startIndex = 0, limit = 200) {
   try {
     let archiveList = archives ?? null;
     if (!archiveList) {
