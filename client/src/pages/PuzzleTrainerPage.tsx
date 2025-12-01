@@ -167,7 +167,6 @@ export default function PuzzleTrainerPage() {
   const wrongTimeoutRef = useRef<number | null>(null);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [hydratedFromCache, setHydratedFromCache] = useState(false);
-  const [solvedFen, setSolvedFen] = useState<string | null>(null);
   const pieceAssets = useMemo(() => {
     const glob = import.meta.glob("../assets/pieces/*/*.svg", { eager: true, import: "default" });
     const map: Record<string, Record<string, string>> = {};
@@ -459,7 +458,6 @@ export default function PuzzleTrainerPage() {
       setWrongSquare(null);
       setCorrectSquare(null);
       setAttemptedWrong(false);
-      setSolvedFen(null);
       setLiveEvaluation(null);
       if (evalSourceRef.current) {
         evalSourceRef.current.close();
@@ -487,7 +485,6 @@ export default function PuzzleTrainerPage() {
         setStatusMessage("Correct! You found the best move.");
         setBoardPosition(chess.fen());
         setCorrectSquare(targetSquare);
-        setSolvedFen(chess.fen());
         setWrongSquare(null);
         setPuzzleResults((prev) => {
           const next = [...prev];
