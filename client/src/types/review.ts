@@ -9,10 +9,7 @@ export type BoardThemeKey =
   | "ocean"
   | "sunset"
   | "midnight"
-  | "rose"
-  | "ember"
-  | "cobalt"
-  | "moss";
+  | "rose";
 
 export type MoveSnapshot = {
   ply: number;

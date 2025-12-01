@@ -1461,7 +1461,4 @@ const BOARD_THEMES: Record<
   sunset: { light: "#fce8d5", dark: "#d47455", label: "Sunset" },
   midnight: { light: "#cbd5e1", dark: "#1f2937", label: "Midnight" },
   rose: { light: "#fce7f3", dark: "#be185d", label: "Rose" },
-  ember: { light: "#ffe5d3", dark: "#e4572e", label: "Ember" },
-  cobalt: { light: "#e3ecff", dark: "#1e3a8a", label: "Cobalt" },
-  moss: { light: "#e8f0df", dark: "#5b6b2f", label: "Moss" },
 };

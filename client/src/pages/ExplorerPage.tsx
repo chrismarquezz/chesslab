@@ -21,7 +21,7 @@ const BOARD_THEMES: Record<
   modern: { light: "#f2f2f2", dark: "#777777", label: "Modern" },
   wood: { light: "#ede0c8", dark: "#b58863", label: "Wood" },
   aero: { light: "#dce3ea", dark: "#6b829c", label: "Aero" },
-  dusk: { light: "#f0d9b5", dark: "#b58863", label: "Dusk" },
+  dusk: { light: "#e4e9f2", dark: "#374151", label: "Dusk" },
   forest: { light: "#e2f0d9", dark: "#779556", label: "Forest" },
   ocean: { light: "#e8f5ff", dark: "#2b6ca3", label: "Ocean" },
   sunset: { light: "#fce8d5", dark: "#d47455", label: "Sunset" },

@@ -30,9 +30,6 @@ const BOARD_THEMES: Record<
   sunset: { light: "#fce8d5", dark: "#d47455", label: "Sunset" },
   midnight: { light: "#cbd5e1", dark: "#1f2937", label: "Midnight" },
   rose: { light: "#fce7f3", dark: "#be185d", label: "Rose" },
-  ember: { light: "#ffe5d3", dark: "#e4572e", label: "Ember" },
-  cobalt: { light: "#e3ecff", dark: "#1e3a8a", label: "Cobalt" },
-  moss: { light: "#e8f0df", dark: "#5b6b2f", label: "Moss" },
 };
 
 type Puzzle = {
@@ -166,7 +163,6 @@ export default function PuzzleTrainerPage() {
   const [puzzleResults, setPuzzleResults] = useState<Array<boolean | null>>([]);
   const prevPuzzleCountRef = useRef(0);
   const [liveEvaluation, setLiveEvaluation] = useState<EngineEvaluation | null>(null);
-  const [engineStatus, setEngineStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const evalSourceRef = useRef<EventSource | null>(null);
   const wrongTimeoutRef = useRef<number | null>(null);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
@@ -400,7 +396,7 @@ export default function PuzzleTrainerPage() {
     if (hydratedFromCache) {
       void loadPuzzles();
     }
-  }, [hydratedFromCache, loadPuzzles]);
+  }, [hydratedFromCache, loadPuzzles, games]);
 
   useEffect(() => {
     const key = getPuzzleCacheKey(username);
@@ -465,7 +461,6 @@ export default function PuzzleTrainerPage() {
       setAttemptedWrong(false);
       setSolvedFen(null);
       setLiveEvaluation(null);
-      setEngineStatus("idle");
       if (evalSourceRef.current) {
         evalSourceRef.current.close();
         evalSourceRef.current = null;
@@ -656,14 +651,12 @@ export default function PuzzleTrainerPage() {
         evalSourceRef.current = null;
       }
       setLiveEvaluation(null);
-      setEngineStatus("idle");
       return;
     }
     if (evalSourceRef.current) {
       evalSourceRef.current.close();
       evalSourceRef.current = null;
     }
-    setEngineStatus("loading");
     const url = `${API_BASE_URL}/api/review/evaluate/stream?fen=${encodeURIComponent(boardPosition)}&depth=22&lines=${engineLinesCount}`;
     const source = new EventSource(url);
     evalSourceRef.current = source;
@@ -671,14 +664,12 @@ export default function PuzzleTrainerPage() {
       try {
         const payload = JSON.parse(event.data) as { evaluation?: EngineEvaluation; done?: boolean; error?: string };
         if (payload.error) {
-          setEngineStatus("error");
           source.close();
           evalSourceRef.current = null;
           return;
         }
         if (payload.evaluation) {
           setLiveEvaluation(payload.evaluation);
-          setEngineStatus("success");
         }
         if (payload.done) {
           source.close();
@@ -689,7 +680,6 @@ export default function PuzzleTrainerPage() {
       }
     };
     source.onerror = () => {
-      setEngineStatus("error");
       source.close();
       evalSourceRef.current = null;
     };
@@ -874,7 +864,7 @@ export default function PuzzleTrainerPage() {
                       <div className="space-y-1">
                         <div className="text-gray-600 text-xs uppercase">Top line</div>
                         <div className="px-2 py-2 rounded-lg border border-gray-200 bg-gray-50 font-mono text-xs">
-                          {formatPvLines(liveEvaluation?.pv ?? [], boardPosition, 12).join(" ")}
+                          {liveEvaluation?.pv ? formatPvLines(liveEvaluation.pv, boardPosition, 12).join(" ") : "—"}
                         </div>
                       </div>
                     </div>
@@ -889,7 +879,9 @@ export default function PuzzleTrainerPage() {
                       <div className="space-y-1">
                         <div className="text-gray-600 text-xs uppercase">PV</div>
                         <div className="px-2 py-2 rounded-lg border border-gray-200 bg-gray-50 font-mono text-xs">
-                          {formatPvLines(currentPuzzle.playedScore?.pv ?? [], currentPuzzle.fen, 12).join(" ")}
+                          {"pv" in (currentPuzzle.playedScore || {}) && Array.isArray((currentPuzzle.playedScore as any).pv)
+                            ? formatPvLines((currentPuzzle.playedScore as any).pv, currentPuzzle.fen, 12).join(" ")
+                            : "—"}
                         </div>
                       </div>
                     </div>
