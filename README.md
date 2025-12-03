@@ -1,4 +1,4 @@
-# Chesslytics
+# ChessLab
 
 Personal chess analysis suite with game review, live engine lines, opening explorer, puzzle trainer, custom boards/pieces, and a sandbox to explore your own variations.
 
