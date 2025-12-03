@@ -36,10 +36,16 @@ Then open the Vite dev URL (shown in the terminal, typically http://localhost:51
 - Backend will auto-discover Stockfish on PATH; set `STOCKFISH_PATH` if needed.
 
 ## Key features
-- **Game review**: Navigate moves, engine lines, move classifications, time insights, and opening explorer.
-- **Sandbox mode**: Make your own moves (click or drag); engine and explorer follow the sandbox, and you can reset back to the game line.
-- **Puzzle trainer**: Generates tactics from your own games with hints, solutions, and progress tracking.
-- **Themes & pieces**: Custom board/piece themes, keyboard shortcuts, and UI settings modal.
+- **Game Review**: Engine lines, move classifications, time insights, and an opening explorer tied to the current position.
+- **Sandbox**: Click or drag your own moves; engine and explorer follow the sandbox, with a quick reset back to the game line.
+- **Puzzle Trainer**: Auto-builds tactics from your games with hints, solutions, and a progress tracker.
+- **Themes & Shortcuts**: Custom board/piece themes and keyboard shortcuts for faster navigation.
+
+## Feature highlights
+- **Game Review**: Engine lines and move quality labels; opening explorer for the current FEN.
+- **Sandbox**: Free-play on any position; engine/explorer stay in sync; reset to the main line anytime.
+- **Puzzle Trainer**: User-game tactics with hint/solution flow and progress grid.
+- **Themes & Shortcuts**: Board/piece theme picker and keyboard controls (Space, A, arrows, F, S).
 
 ## Keyboard shortcuts (review)
 - Space: start/pause autoplay
@@ -56,3 +62,7 @@ Then open the Vite dev URL (shown in the terminal, typically http://localhost:51
 ## Notes
 - Opening explorer is proxied through the backend.
 - Stockfish depth/lines are capped server-side for responsiveness.
+
+## Tech stack
+- **Frontend**: React (Vite, TypeScript), Tailwind-ish styling, react-chessboard, chess.js, framer-motion, recharts, lucide-react.
+- **Backend**: Express + TypeScript, Stockfish bridge for analysis/streaming eval, opening explorer proxy (lichess explorer).
