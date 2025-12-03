@@ -318,6 +318,74 @@ export default function ReviewPage() {
     return { white: firstWhite, black: firstBlack };
   }, [timeline]);
 
+  const clockToSeconds = useCallback((clock: string | null | undefined): number | null => {
+    if (!clock) return null;
+    const parts = clock.split(":").map((p) => Number(p));
+    if (parts.some((n) => !Number.isFinite(n) || n < 0)) return null;
+    let seconds = 0;
+    if (parts.length === 3) {
+      const [h, m, s] = parts;
+      seconds = h * 3600 + m * 60 + s;
+    } else if (parts.length === 2) {
+      const [m, s] = parts;
+      seconds = m * 60 + s;
+    } else if (parts.length === 1) {
+      seconds = parts[0];
+    }
+    return Number.isFinite(seconds) ? seconds : null;
+  }, []);
+
+  const timeStats = useMemo(() => {
+    if (!timeline.length) return null;
+    const base = clockToSeconds(playerClock);
+    const prev: { white: number | null; black: number | null } = { white: base, black: base };
+    const totals: { white: number; black: number } = { white: 0, black: 0 };
+    const counts: { white: number; black: number } = { white: 0, black: 0 };
+    const longest: {
+      white: { seconds: number; moveNumber?: number } | null;
+      black: { seconds: number; moveNumber?: number } | null;
+    } = { white: null, black: null };
+    const distribution: {
+      white: { opening: number; middlegame: number; endgame: number };
+      black: { opening: number; middlegame: number; endgame: number };
+    } = {
+      white: { opening: 0, middlegame: 0, endgame: 0 },
+      black: { opening: 0, middlegame: 0, endgame: 0 },
+    };
+    const phaseFor = (moveNumber: number): "opening" | "middlegame" | "endgame" => {
+      if (moveNumber <= 12) return "opening";
+      if (moveNumber <= 30) return "middlegame";
+      return "endgame";
+    };
+
+    timeline.forEach((move) => {
+      const current = clockToSeconds(move.clock);
+      if (current == null) return;
+      if (prev[move.color] == null) {
+        prev[move.color] = current;
+        return;
+      }
+      const spent = Math.max(0, prev[move.color]! - current);
+      totals[move.color] += spent;
+      counts[move.color] += 1;
+      const phase = phaseFor(move.moveNumber);
+      distribution[move.color][phase] += spent;
+      if (!longest[move.color] || spent > longest[move.color]!.seconds) {
+        longest[move.color] = { seconds: spent, moveNumber: move.moveNumber };
+      }
+      prev[move.color] = current;
+    });
+
+    return {
+      average: {
+        white: counts.white ? totals.white / counts.white : null,
+        black: counts.black ? totals.black / counts.black : null,
+      },
+      longest,
+      distribution,
+    };
+  }, [clockToSeconds, playerClock, timeline]);
+
   const currentClockSnapshot = useMemo(() => {
     const baseClock = playerClock ?? null;
     if (currentMove && clockTimeline[currentMove.ply]) {
@@ -1135,14 +1203,15 @@ export default function ReviewPage() {
                     engineStatus={engineStatus}
                     engineError={engineError}
                     stableEvaluation={stableEvaluation}
-                    drawInfo={drawInfo}
-                    fullReviewDone={fullReviewDone}
-                    linesToShow={engineLinesCount}
-                    engineEnabled={engineEnabled}
-                    onToggleEngine={handleToggleEngine}
-                  />
-                </div>
+                  drawInfo={drawInfo}
+                  fullReviewDone={fullReviewDone}
+                  linesToShow={engineLinesCount}
+                  engineEnabled={engineEnabled}
+                  onToggleEngine={handleToggleEngine}
+                  timeStats={timeStats}
+                />
               </div>
+            </div>
 
               <div className="xl:hidden flex flex-col gap-4 items-center w-full">
                 <BoardAnalysisCard
@@ -1230,6 +1299,7 @@ export default function ReviewPage() {
                   linesToShow={engineLinesCount}
                   engineEnabled={engineEnabled}
                   onToggleEngine={handleToggleEngine}
+                  timeStats={timeStats}
                 />
               </div>
             </section>

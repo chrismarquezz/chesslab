@@ -245,18 +245,20 @@ export default function App() {
           </section>
         )}
 
-        <section className="bg-white border border-gray-200 shadow rounded-2xl p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
+        <section className="bg-white border border-gray-200 shadow rounded-2xl p-6 min-h-[180px] md:min-h-[200px] flex">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 w-full">
+            <div className="space-y-1">
               <h3 className="text-xl font-semibold text-gray-900">Puzzle trainer</h3>
-              <p className="text-sm text-gray-600">Review tactics from your own games.</p>
+              <p className="text-sm text-gray-600 max-w-xl">Review tactics from your own games and drill the positions that matter most.</p>
             </div>
-            <button
-              onClick={() => navigate("/puzzles")}
-              className="inline-flex items-center justify-center rounded-xl bg-[#00bfa6] text-white font-semibold px-5 py-2.5 shadow hover:bg-[#00a58f] transition"
-            >
-              Train
-            </button>
+            <div className="sm:self-start">
+              <button
+                onClick={() => navigate("/puzzles")}
+                className="inline-flex items-center justify-center rounded-xl bg-[#00bfa6] text-white font-semibold px-5 py-2.5 shadow hover:bg-[#00a58f] transition"
+              >
+                Train
+              </button>
+            </div>
           </div>
         </section>
 
