@@ -319,6 +319,15 @@ export function classifyMoveQuality({
   const loss = Math.max(0, prevPerspective - currPerspective);
   const rule = MOVE_QUALITY_RULES.find((r) => loss <= r.maxLoss);
   if (!rule) return null;
+  // If a big drop still leaves the mover clearly winning (>= +4), soften to Inaccuracy.
+  if ((rule.label === "Mistake" || rule.label === "Blunder") && currPerspective >= 400) {
+    const inaccuracyRule = MOVE_QUALITY_RULES.find((r) => r.label === "Inaccuracy");
+    return {
+      label: "Inaccuracy",
+      loss,
+      description: inaccuracyRule?.description ?? "A softer move that gives the opponent chances.",
+    };
+  }
   return {
     label: rule.label,
     loss,

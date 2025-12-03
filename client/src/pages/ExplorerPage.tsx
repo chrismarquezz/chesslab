@@ -328,6 +328,16 @@ export default function ExplorerPage() {
     [applyMove, selectedSquare]
   );
 
+  const handleExplorerMove = useCallback(
+    (uci: string) => {
+      if (!uci || uci.length < 4) return;
+      const from = uci.slice(0, 2) as Square;
+      const to = uci.slice(2, 4) as Square;
+      applyMove(from, to);
+    },
+    [applyMove]
+  );
+
   const handleUndo = () => {
     const game = chessRef.current;
     const undone = game.undo();
@@ -413,6 +423,8 @@ export default function ExplorerPage() {
                   engineError={evaluationState.status === "error" ? evaluationState.error : null}
                   stableEvaluation={displayedEvaluation}
                   linesToShow={engineLinesCount}
+                  currentFen={currentFen}
+                  onSelectExplorerMove={handleExplorerMove}
                 />
               </div>
             </div>
@@ -450,6 +462,8 @@ export default function ExplorerPage() {
                 engineError={evaluationState.status === "error" ? evaluationState.error : null}
                 stableEvaluation={displayedEvaluation}
                 linesToShow={engineLinesCount}
+                currentFen={currentFen}
+                onSelectExplorerMove={handleExplorerMove}
               />
             </div>
           </section>

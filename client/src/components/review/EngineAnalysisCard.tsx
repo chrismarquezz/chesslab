@@ -1,8 +1,27 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EngineEvaluation, MoveEvalState } from "../../types/review";
 import { formatBestMoveSan, formatLineContinuation, formatScore, getMateWinner } from "../../utils/reviewEngine";
 
+const API_BASE_URL = import.meta.env.VITE_SERVER_URL ?? "http://localhost:5100";
+
 type PhaseBucket = "opening" | "middlegame" | "endgame";
+
+type ExplorerMove = {
+  san: string;
+  uci: string;
+  white: number;
+  draws: number;
+  black: number;
+  total?: number;
+  averageRating?: number;
+};
+
+type ExplorerResponse = {
+  fen: string;
+  moves: ExplorerMove[];
+  opening?: { name?: string; eco?: string };
+  total?: number;
+};
 
 interface TimeStats {
   average: { white: number | null; black: number | null };
@@ -20,24 +39,28 @@ interface EngineAnalysisCardProps {
   engineStatus?: MoveEvalState["status"];
   engineError: string | null;
   stableEvaluation: { evaluation: EngineEvaluation; fen?: string } | null;
+  currentFen?: string | null;
   drawInfo?: { result: string; reason?: string };
   fullReviewDone?: boolean;
   linesToShow?: number;
   engineEnabled?: boolean;
   onToggleEngine?: () => void;
   timeStats?: TimeStats | null;
+  onSelectExplorerMove?: (uci: string) => void;
 }
 
 export default function EngineAnalysisCard({
   engineStatus,
   engineError,
   stableEvaluation,
+  currentFen,
   drawInfo,
   fullReviewDone = true,
   linesToShow = 3,
   engineEnabled = true,
   onToggleEngine,
   timeStats = null,
+  onSelectExplorerMove,
 }: EngineAnalysisCardProps) {
   const showDraw = Boolean(drawInfo && drawInfo.result === "1/2-1/2");
   const [activeTab, setActiveTab] = useState<"summary" | "analysis" | "time" | "explorer">("analysis");
@@ -67,6 +90,54 @@ export default function EngineAnalysisCard({
       </div>
     );
   }, [drawInfo?.reason, engineError, engineStatus, showDraw, stableEvaluation]);
+
+  type ExplorerState =
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "error"; error: string }
+    | { status: "ready"; moves: ExplorerMove[]; total: number; opening?: string };
+
+  const explorerCache = useRef(new Map<string, ExplorerState>());
+  const [explorerState, setExplorerState] = useState<ExplorerState>({ status: "idle" });
+
+  useEffect(() => {
+    if (activeTab !== "explorer") return;
+    const fen = currentFen || stableEvaluation?.fen;
+    if (!fen) {
+      setExplorerState({ status: "error", error: "No position available." });
+      return;
+    }
+    const cached = explorerCache.current.get(fen);
+    if (cached) {
+      setExplorerState(cached);
+      return;
+    }
+    let cancelled = false;
+    setExplorerState({ status: "loading" });
+    const controller = new AbortController();
+    fetch(`${API_BASE_URL}/api/review/book?fen=${encodeURIComponent(fen)}&moves=10`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error("Failed to load explorer data");
+        }
+        const data = (await res.json()) as ExplorerResponse;
+        const moves = Array.isArray(data.moves) ? data.moves : [];
+        const total = data.total ?? moves.reduce((sum, mv) => sum + (mv.total ?? mv.white + mv.black + mv.draws), 0);
+        const next: ExplorerState = { status: "ready", moves, total, opening: data.opening?.name };
+        if (!cancelled) {
+          explorerCache.current.set(fen, next);
+          setExplorerState(next);
+        }
+      })
+      .catch((err: any) => {
+        if (cancelled || err?.name === "AbortError") return;
+        setExplorerState({ status: "error", error: err?.message || "Explorer lookup failed" });
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [activeTab, currentFen, stableEvaluation?.fen]);
 
   const timeContent = useMemo(() => {
     if (!fullReviewDone) {
@@ -173,11 +244,86 @@ export default function EngineAnalysisCard({
     );
   }, [fullReviewDone, timeStats]);
 
-  const explorerContent = (
-    <div className="text-sm text-gray-500">
-      Position explorer coming soon. Use the board controls to navigate moves for now.
-    </div>
-  );
+  const explorerContent = useMemo(() => {
+    if (explorerState.status === "idle" || explorerState.status === "loading") {
+      return <p className="text-sm text-gray-500">Loading explorer data…</p>;
+    }
+    if (explorerState.status === "error") {
+      return (
+        <div className="text-sm text-gray-500 space-y-2">
+          <p>{explorerState.error}</p>
+          <button
+            className="text-[#00bfa6] font-semibold"
+            onClick={() => {
+              // force refetch by resetting state; effect will run on next render with same fen.
+              setExplorerState({ status: "idle" });
+              setActiveTab("explorer");
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+
+    const moves = explorerState.moves ?? [];
+    if (!moves.length) {
+      return <p className="text-sm text-gray-500">No database moves for this position.</p>;
+    }
+    const totalGames = explorerState.total || moves.reduce((sum, mv) => sum + (mv.total ?? mv.white + mv.black + mv.draws), 0);
+    const safeTotal = totalGames || 1;
+
+    return (
+      <div className="space-y-3">
+        <div className="space-y-2">
+          {moves.map((mv) => {
+            const white = mv.white ?? 0;
+            const draws = mv.draws ?? 0;
+            const black = mv.black ?? 0;
+            const total = mv.total ?? white + draws + black;
+            const wPct = total ? Math.round((white / total) * 100) : 0;
+            const dPct = total ? Math.round((draws / total) * 100) : 0;
+            const bPct = total ? Math.max(0, 100 - wPct - dPct) : 0;
+            const handleClick = () => {
+              if (onSelectExplorerMove && mv.uci) {
+                onSelectExplorerMove(mv.uci);
+              }
+            };
+            return (
+              <button
+                key={mv.uci}
+                type="button"
+                onClick={handleClick}
+                disabled={!onSelectExplorerMove}
+                className={`w-full text-left border border-gray-200 rounded-xl p-3 transition ${
+                  onSelectExplorerMove
+                    ? "hover:border-[#00bfa6] hover:bg-[#00bfa6]/5"
+                    : "cursor-default opacity-90"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-900">{mv.san}</span>
+                  <span className="text-xs text-gray-600">
+                    {total.toLocaleString()} games • {Math.round((total / safeTotal) * 100)}%
+                  </span>
+                </div>
+                <div className="mt-2 flex h-2 rounded-full overflow-hidden border border-gray-200">
+                  <span className="bg-emerald-400 h-full" style={{ width: `${wPct}%` }} />
+                  <span className="bg-gray-300 h-full" style={{ width: `${dPct}%` }} />
+                  <span className="bg-gray-800 h-full" style={{ width: `${bPct}%` }} />
+                </div>
+                <div className="mt-1 flex justify-between text-[11px] text-gray-600">
+                  <span>W {wPct}%</span>
+                  <span>D {dPct}%</span>
+                  <span>B {bPct}%</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }, [explorerState, onSelectExplorerMove]);
 
   return (
     <div className="flex flex-col gap-0">
