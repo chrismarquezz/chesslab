@@ -10,6 +10,11 @@ Personal chess analysis suite with game review, live engine lines, opening explo
 - Node.js 18+ and npm
 - Stockfish available on the server machine (on `PATH` or via `STOCKFISH_PATH`)
 
+## Tech stack
+- **Frontend**: React (Vite, TypeScript), Tailwind-ish styling, react-chessboard, chess.js, framer-motion, recharts, lucide-react.
+- **Backend**: Express + TypeScript, Stockfish bridge for analysis/streaming eval, opening explorer proxy (lichess explorer).
+
+
 ## Setup
 ```bash
 # Install dependencies
@@ -54,7 +59,3 @@ Then open the Vite dev URL (shown in the terminal, typically http://localhost:51
 ## Notes
 - Opening explorer is proxied through the backend.
 - Stockfish depth/lines are capped server-side for responsiveness.
-
-## Tech stack
-- **Frontend**: React (Vite, TypeScript), Tailwind-ish styling, react-chessboard, chess.js, framer-motion, recharts, lucide-react.
-- **Backend**: Express + TypeScript, Stockfish bridge for analysis/streaming eval, opening explorer proxy (lichess explorer).
