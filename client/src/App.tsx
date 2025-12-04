@@ -239,7 +239,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="bg-white border border-gray-200 shadow rounded-2xl p-6 mt-10">
+        <section className="bg-gradient-to-r from-[#e6fffa] via-white to-[#e6f7ff] border border-gray-200 shadow rounded-2xl p-6 mt-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
             <div>
               <h3 className="text-2xl font-semibold text-gray-900">Analyze your games</h3>
