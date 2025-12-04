@@ -1,13 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { getRecentGames, getProfile, getStats, getRatingHistory } from "../api/chessAPI";
-
-type RatingPoint = { month: string; rating: number };
-type TrendHistory = {
-  blitz: RatingPoint[];
-  rapid: RatingPoint[];
-  bullet: RatingPoint[];
-};
+import { getRecentGames, getProfile, getStats } from "../api/chessAPI";
 
 interface UserContextType {
   username: string;
@@ -21,7 +14,6 @@ interface UserContextType {
   hasMoreGames: boolean;
   profile: any | null;
   stats: any | null;
-  trendHistory: TrendHistory;
   userDataLoading: boolean;
   userDataError: string | null;
   fetchUserData: (usernameOverride?: string) => Promise<boolean>;
@@ -44,11 +36,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [gamesError, setGamesError] = useState<string | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [stats, setStats] = useState<any | null>(null);
-  const [trendHistory, setTrendHistory] = useState<TrendHistory>({
-    blitz: [],
-    rapid: [],
-    bullet: [],
-  });
   const [userDataLoading, setUserDataLoading] = useState(false);
   const [userDataError, setUserDataError] = useState<string | null>(null);
   const [hasMoreGames, setHasMoreGames] = useState(false);
@@ -72,43 +59,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (!target) {
         setProfile(null);
         setStats(null);
-        setTrendHistory({
-          blitz: [],
-          rapid: [],
-          bullet: [],
-        });
-      setGames([]);
-      setGamesError(null);
-      setUserDataError(null);
-      setHasMoreGames(false);
-      setArchivesCache(null);
-      setArchiveIndex(0);
-      setLoadMoreLoading(false);
-      return false;
-    }
+        setGames([]);
+        setGamesError(null);
+        setUserDataError(null);
+        setHasMoreGames(false);
+        setArchivesCache(null);
+        setArchiveIndex(0);
+        setLoadMoreLoading(false);
+        return false;
+      }
 
-    setUserDataLoading(true);
-    setGamesLoading(true);
-    setLoadMoreLoading(false);
-    setUserDataError(null);
-    setGamesError(null);
-    try {
-      const [profileData, statsData, blitzHistory, rapidHistory, bulletHistory, gamesData] = await Promise.all([
-        getProfile(target),
+      setUserDataLoading(true);
+      setGamesLoading(true);
+      setLoadMoreLoading(false);
+      setUserDataError(null);
+      setGamesError(null);
+      try {
+        const [profileData, statsData, gamesData] = await Promise.all([
+          getProfile(target),
           getStats(target),
-          getRatingHistory(target, "blitz"),
-          getRatingHistory(target, "rapid"),
-          getRatingHistory(target, "bullet"),
           getRecentGames(target, undefined, 0, 200),
         ]);
 
         setProfile(profileData);
         setStats(statsData);
-        setTrendHistory({
-          blitz: blitzHistory,
-          rapid: rapidHistory,
-          bullet: bulletHistory,
-        });
         setGames(gamesData.games);
         setHasMoreGames(gamesData.hasMore ?? false);
         setArchivesCache(gamesData.archives ?? null);
@@ -178,7 +152,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         hasMoreGames,
         profile,
         stats,
-        trendHistory,
         userDataLoading,
         userDataError,
         fetchUserData,

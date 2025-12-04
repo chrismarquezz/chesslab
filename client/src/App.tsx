@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import { useUser } from "./context/UserContext";
-import { getProfile } from "./api/chessAPI";
 import { Chess } from "chess.js";
 
 const DRAW_RESULTS = new Set(["stalemate", "agreed", "repetition", "timevsinsufficient", "insufficient", "50move"]);
@@ -42,48 +41,31 @@ export default function App() {
     }
   }, [username]);
 
-  useEffect(() => {
-    if (!pendingUsername.trim()) {
-      setUsernameCheckStatus("idle");
-      setUsernameError(null);
-      return;
-    }
-
-    setUsernameCheckStatus("loading");
-    const handle = setTimeout(async () => {
-      try {
-        await getProfile(pendingUsername.trim());
-        setUsernameCheckStatus("valid");
-        setUsernameError(null);
-      } catch {
-        setUsernameCheckStatus("invalid");
-        setUsernameError("Account not found. Please check the username.");
-      }
-    }, 400);
-
-    return () => clearTimeout(handle);
-  }, [pendingUsername]);
-
   const handleUsernameSubmit = async () => {
     const target = pendingUsername.trim();
     if (!target) {
       setUsernameError("Username cannot be empty.");
       return;
     }
-    if (usernameCheckStatus !== "valid") {
-      setUsernameError("Please enter a valid Chess.com username.");
-      return;
-    }
+    setUsernameCheckStatus("loading");
     setUsernameError(null);
     setIsUsernameSubmitting(true);
-    const ok = await fetchUserData(target);
-    setIsUsernameSubmitting(false);
-    if (!ok) {
+    try {
+      const ok = await fetchUserData(target);
+      if (!ok) {
+        setUsernameCheckStatus("invalid");
+        setUsernameError("Account not found. Please enter a valid Chess.com username.");
+        return;
+      }
+      setUsernameCheckStatus("valid");
+      setUsername(target);
+      setIsUsernameModalOpen(false);
+    } catch {
+      setUsernameCheckStatus("invalid");
       setUsernameError("Account not found. Please enter a valid Chess.com username.");
-      return;
+    } finally {
+      setIsUsernameSubmitting(false);
     }
-    setUsername(target);
-    setIsUsernameModalOpen(false);
   };
 
   const handleAnalyzeGame = (game: any) => {
@@ -250,11 +232,11 @@ export default function App() {
                 value={gameSearch}
                 onChange={(e) => setGameSearch(e.target.value)}
                 placeholder="Search opponent or opening..."
-                className="w-64 rounded-xl border border-gray-300 px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-[#00bfa6] focus:border-[#00bfa6]"
+                className="w-64 rounded-xl border border-gray-300 px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-[#00bfa6] focus:border-[#00bfa6] bg-white"
               />
               <button
                 onClick={handleRefresh}
-                className="inline-flex items-center justify-center rounded-xl border border-gray-300 w-10 h-10 text-gray-700 transition disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-300 w-10 h-10 text-gray-700 transition disabled:opacity-50 bg-white hover:bg-gray-50"
                 disabled={gamesLoading || userDataLoading}
                 >
                 <span className="sr-only">Refresh</span>
@@ -379,13 +361,7 @@ export default function App() {
                   className="w-full rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#00bfa6] focus:border-[#00bfa6] px-4 py-3 text-gray-800"
                 />
                 <div className="min-h-[20px]">
-                  {usernameError ? (
-                    <p className="text-sm text-red-600">{usernameError}</p>
-                  ) : usernameCheckStatus === "valid" ? (
-                    <p className="text-sm text-emerald-600">Account found.</p>
-                  ) : usernameCheckStatus === "loading" ? (
-                    <p className="text-sm text-gray-500">Checking…</p>
-                  ) : null}
+                  {usernameError ? <p className="text-sm text-red-600">{usernameError}</p> : null}
                 </div>
               </div>
               <div className="flex justify-end gap-3">
@@ -403,7 +379,7 @@ export default function App() {
                 <button
                   onClick={handleUsernameSubmit}
                   className="inline-flex items-center justify-center rounded-xl bg-[#00bfa6] text-white font-semibold px-6 py-2.5 shadow hover:bg-[#00a58f] transition disabled:opacity-40"
-                  disabled={!pendingUsername.trim() || isUsernameSubmitting || usernameCheckStatus !== "valid"}
+                  disabled={!pendingUsername.trim() || isUsernameSubmitting}
                 >
                   {isUsernameSubmitting ? "Loading..." : "Continue"}
                 </button>
