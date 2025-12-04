@@ -190,7 +190,7 @@ export default function App() {
             )}
 
             {profile && (
-              <section className="flex flex-col gap-4">
+              <section className={`flex flex-col gap-4 ${profile ? "fade-in" : ""}`} style={{ animationDelay: "0s" }}>
                 <div className="flex items-center gap-5">
                   {profile.avatar ? (
                     <img src={profile.avatar} alt={`${profile.username} avatar`} className="w-28 h-28 border border-gray-200 object-cover" />
@@ -219,7 +219,8 @@ export default function App() {
             )}
 
             <section
-              className="bg-gradient-to-r from-[#e6fffa] via-white to-[#e6f7ff] border border-gray-200 shadow rounded-2xl p-4 md:p-5 min-h-[150px] md:min-h-[170px] flex cursor-pointer hover:shadow-md transition-shadow"
+              className={`bg-gradient-to-r from-[#e6fffa] via-white to-[#e6f7ff] border border-gray-200 shadow rounded-2xl p-4 md:p-5 min-h-[150px] md:min-h-[170px] flex cursor-pointer hover:shadow-md transition-shadow ${profile ? "fade-in" : ""}`}
+              style={{ animationDelay: "0.05s" }}
               onClick={() => navigate("/puzzles")}
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 w-full">
@@ -237,7 +238,10 @@ export default function App() {
               </div>
             </section>
 
-            <section className="bg-gradient-to-r from-[#e6fffa] via-white to-[#e6f7ff] border border-gray-200 shadow rounded-2xl p-6 mt-10">
+            <section
+              className={`bg-gradient-to-r from-[#e6fffa] via-white to-[#e6f7ff] border border-gray-200 shadow rounded-2xl p-6 mt-10 ${profile ? "fade-in" : ""}`}
+              style={{ animationDelay: "0.1s" }}
+            >
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                 <div>
                   <h3 className="text-2xl font-semibold text-gray-900">Analyze your games</h3>

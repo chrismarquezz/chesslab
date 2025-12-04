@@ -137,8 +137,6 @@ export default function ReviewPage() {
     fen?: string;
   } | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [analysisReady, setAnalysisReady] = useState(false);
   const [analysisKey, setAnalysisKey] = useState(0);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -227,28 +225,6 @@ export default function ReviewPage() {
       setIsAutoPlaying(false);
     }
   }, [timeline.length]);
-
-  useEffect(() => {
-    if (analysisLoading) {
-      setShowAnalysisModal(true);
-      setLoadingProgress(5);
-      const interval = setInterval(() => {
-        setLoadingProgress((prev) => {
-          if (prev >= 90) return prev;
-          const next = prev + Math.random() * 5;
-          return Math.min(next, 85);
-        });
-      }, 400);
-      return () => clearInterval(interval);
-    }
-    setLoadingProgress(100);
-    const timeout = setTimeout(() => {
-      setShowAnalysisModal(false);
-      setLoadingProgress(0);
-    }, 350);
-    return () => clearTimeout(timeout);
-  }, [analysisLoading]);
-
 
   const boardPosition =
     currentMoveIndex >= 0 && timeline[currentMoveIndex] ? timeline[currentMoveIndex].fen : initialFen;
@@ -1110,22 +1086,7 @@ export default function ReviewPage() {
               />
             </div>
           )}
-          {showAnalysisModal && (
-            <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 transition-opacity duration-300 ${analysisLoading ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
-              <div className={`bg-white border border-gray-200 rounded-2xl shadow-2xl w-full max-w-xl p-8 space-y-4 text-center transform transition-all duration-300 ${analysisLoading ? "scale-100" : "scale-95"}`}>
-                <h3 className="text-2xl font-semibold text-gray-900">Analyzing Game</h3>
-                <p className="text-sm text-gray-500">Preparing engine insights and move timelines…</p>
-                <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden">
-                  <div
-                    className="h-full bg-[#00bfa6] transition-all duration-300 ease-out"
-                    style={{ width: `${Math.min(loadingProgress, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {analysisReady && !analysisLoading && !showAnalysisModal && selectedView === "analysis" && (
+          {analysisReady && selectedView === "analysis" && (
             <section
               key={analysisKey}
               className="fade-in w-full"
