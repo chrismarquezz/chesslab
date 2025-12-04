@@ -29,7 +29,6 @@ export default function App() {
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(!username);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isUsernameSubmitting, setIsUsernameSubmitting] = useState(false);
-  const [usernameCheckStatus, setUsernameCheckStatus] = useState<"idle" | "loading" | "valid" | "invalid">("idle");
   const [gameSearch, setGameSearch] = useState("");
 
   useEffect(() => {
@@ -48,21 +47,17 @@ export default function App() {
       setUsernameError("Username cannot be empty.");
       return;
     }
-    setUsernameCheckStatus("loading");
-    setUsernameError(null);
-    setIsUsernameSubmitting(true);
+      setUsernameError(null);
+      setIsUsernameSubmitting(true);
     try {
       const ok = await fetchUserData(target);
       if (!ok) {
-        setUsernameCheckStatus("invalid");
         setUsernameError("Account not found. Please enter a valid Chess.com username.");
         return;
       }
-      setUsernameCheckStatus("valid");
       setUsername(target);
       setIsUsernameModalOpen(false);
     } catch {
-      setUsernameCheckStatus("invalid");
       setUsernameError("Account not found. Please enter a valid Chess.com username.");
     } finally {
       setIsUsernameSubmitting(false);
@@ -175,49 +170,6 @@ export default function App() {
   const canDismissUsernameModal = Boolean(username);
   const isInitialLoading = gamesLoading && games.length === 0;
   const showContent = !isUsernameModalOpen;
-
-  type AggregatedStats = {
-    totalGames: number;
-    winRate: number | null;
-    bestFormat: { label: string; rating: number | null } | null;
-  };
-
-  const aggregatedStats = useMemo<AggregatedStats>(() => {
-    const modes = [
-      { key: "chess_bullet", label: "Bullet" },
-      { key: "chess_blitz", label: "Blitz" },
-      { key: "chess_rapid", label: "Rapid" },
-      { key: "chess_daily", label: "Daily" },
-    ] as const;
-
-    let wins = 0;
-    let losses = 0;
-    let draws = 0;
-    let bestFormat: { label: string; rating: number | null } | null = null;
-
-    modes.forEach((m) => {
-      const record = (stats as any)?.[m.key]?.record;
-      wins += record?.win ?? 0;
-      losses += record?.loss ?? 0;
-      draws += record?.draw ?? 0;
-
-      const rating = (stats as any)?.[m.key]?.last?.rating ?? null;
-      if (rating != null) {
-        if (!bestFormat || rating > (bestFormat.rating ?? -Infinity)) {
-          bestFormat = { label: m.label, rating };
-        }
-      }
-    });
-
-    const total = wins + losses + draws;
-    const winRate = total > 0 ? Math.round((wins / total) * 100) : null;
-
-    return {
-      totalGames: total,
-      winRate,
-      bestFormat,
-    };
-  }, [stats]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 pb-16 pt-8">

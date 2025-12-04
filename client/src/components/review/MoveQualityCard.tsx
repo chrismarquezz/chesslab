@@ -9,11 +9,6 @@ interface MoveQualityCardProps {
   bookStatus?: BookMoveStatus;
 }
 
-function formatLoss(loss: number) {
-  if (!Number.isFinite(loss) || loss <= 0) return "0.00";
-  return (loss / 100).toFixed(2);
-}
-
 export default function MoveQualityCard({ move, classification, awaitingEvaluation, bookStatus }: MoveQualityCardProps) {
   const isBookMove = Boolean(bookStatus?.inBook);
   const label = isBookMove ? "Book" : classification?.label;
