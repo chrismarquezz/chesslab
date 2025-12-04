@@ -1163,6 +1163,14 @@ export default function ReviewPage() {
       } else if (event.key.toLowerCase() === "a") {
         event.preventDefault();
         setShowBestMoveArrow((prev) => !prev);
+      } else if (event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        setSandboxActive((prev) => !prev);
+        if (!sandboxActive) {
+          ensureSandboxBase();
+        } else {
+          exitSandbox();
+        }
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         handleSelectMove(Math.max(currentMoveIndex - 1, -1));
@@ -1338,6 +1346,7 @@ export default function ReviewPage() {
                         <div className="flex justify-between gap-3"><span>Prev / Next</span><span className="font-semibold">← / →</span></div>
                         <div className="flex justify-between gap-3"><span>First / Last</span><span className="font-semibold">↑ / ↓</span></div>
                         <div className="flex justify-between gap-3"><span>Toggle Arrow</span><span className="font-semibold">A</span></div>
+                        <div className="flex justify-between gap-3"><span>Toggle Sandbox</span><span className="font-semibold">C</span></div>
                         <div className="flex justify-between gap-3"><span>Flip Board</span><span className="font-semibold">F</span></div>
                         <div className="flex justify-between gap-3"><span>Settings</span><span className="font-semibold">S</span></div>
                       </div>

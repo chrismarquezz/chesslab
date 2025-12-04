@@ -216,48 +216,25 @@ export default function App() {
                 </div>
               ))}
             </div>
-            {aggregatedStats.totalGames > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
-                {[
-                  {
-                    title: "Win rate",
-                    value: aggregatedStats.winRate != null ? `${aggregatedStats.winRate}%` : "—",
-                  },
-                  {
-                    title: "Total games",
-                    value: aggregatedStats.totalGames.toLocaleString(),
-                  },
-                  {
-                    title: "Best format",
-                    value: aggregatedStats.bestFormat?.label ?? "—",
-                  },
-                ].map((card) => (
-                  <div
-                    key={card.title}
-                    className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center"
-                  >
-                    <p className="text-xs uppercase tracking-wide text-gray-500">{card.title}</p>
-                    <p className="text-2xl font-bold text-[#00bfa6] mt-2">{card.value}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="h-px bg-gray-200/80 w-full" />
           </section>
         )}
 
-        <section className="bg-white border border-gray-200 shadow rounded-2xl p-6 min-h-[180px] md:min-h-[200px] flex">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 w-full">
-            <div className="space-y-1">
-              <h3 className="text-xl font-semibold text-gray-900">Puzzle trainer</h3>
-              <p className="text-sm text-gray-600 max-w-xl">Review tactics from your own games and drill the positions that matter most.</p>
-            </div>
-            <div className="sm:self-start">
-              <button
-                onClick={() => navigate("/puzzles")}
-                className="inline-flex items-center justify-center rounded-xl bg-[#00bfa6] text-white font-semibold px-5 py-2.5 shadow hover:bg-[#00a58f] transition"
-              >
-                Train
-              </button>
+        <section
+          className="bg-gradient-to-r from-[#e6fffa] via-white to-[#e6f7ff] border border-gray-200 shadow rounded-2xl p-4 md:p-5 min-h-[150px] md:min-h-[170px] flex cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/puzzles")}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 w-full">
+            <div className="flex items-start gap-4">
+              <div className="h-16 w-16 rounded-xl bg-[#00bfa6]/10 grid place-items-center text-black font-bold text-6xl border border-[#00bfa6]/20">
+                <span className="-translate-y-1.5 inline-block">♔</span>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl font-semibold text-gray-900">Puzzle trainer</h3>
+                <p className="text-sm text-gray-600 max-w-xl">
+                  Review tactics from your own games and drill the positions that matter most.
+                </p>
+              </div>
             </div>
           </div>
         </section>
