@@ -18,8 +18,8 @@ export default function Navbar({ avatarUrl, username, onAvatarClick, belowTopBar
     <nav className={`fixed left-0 z-50 group/nav ${belowTopBar ? "top-8 h-[calc(100%-2rem)]" : "top-0 h-full"}`}>
       <div className="h-full bg-white border-r border-gray-200 shadow-sm w-16 group-hover/nav:w-56 transition-all duration-200 overflow-hidden flex flex-col">
         <div className="px-3 py-4 flex items-center gap-3 justify-center group-hover/nav:justify-start">
-          <div className="h-10 w-10 rounded-xl bg-[#00bfa6]/10 border border-[#00bfa6]/30 flex items-center justify-center text-[#00bfa6] font-bold flex-shrink-0">
-            CL
+          <div className="h-10 w-10 rounded-xl bg-[#00bfa6] border border-[#00bfa6] grid place-items-center text-white text-5xl font-bold flex-shrink-0 leading-none">
+            <span className="-translate-y-2.5 inline-block">♔</span>
           </div>
           <span className="hidden group-hover/nav:inline text-xl font-extrabold text-[#00bfa6] transition-opacity duration-200 whitespace-nowrap">
             ChessLab

@@ -184,7 +184,7 @@ export default function App() {
         onAvatarClick={() => setIsUsernameModalOpen(true)}
         belowTopBar
       />
-      <div className="max-w-7xl mx-auto px-6 pt-10 pl-24 md:pl-28 space-y-20">
+      <div className="relative max-w-7xl mx-auto px-6 pt-10 pl-24 md:pl-28 space-y-20">
         {userDataError && (
           <div className="bg-white border border-gray-200 shadow rounded-2xl p-4 text-red-600 text-sm">
             {userDataError}
