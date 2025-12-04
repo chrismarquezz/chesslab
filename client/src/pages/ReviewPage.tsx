@@ -136,13 +136,6 @@ export default function ReviewPage() {
     evaluation: EngineEvaluation;
     fen?: string;
   } | null>(null);
-  const [sandboxActive, setSandboxActive] = useState(false);
-  const sandboxGameRef = useRef(new Chess());
-  const [sandboxFen, setSandboxFen] = useState<string | null>(null);
-  const [sandboxLastMove, setSandboxLastMove] = useState<{ from: string; to: string } | null>(null);
-  const [sandboxEvaluation, setSandboxEvaluation] = useState<MoveEvalState | null>(null);
-  const sandboxEvalSourceRef = useRef<EventSource | null>(null);
-  const [sandboxSelected, setSandboxSelected] = useState<string | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
@@ -257,9 +250,8 @@ export default function ReviewPage() {
   }, [analysisLoading]);
 
 
-  const gameBoardPosition =
+  const boardPosition =
     currentMoveIndex >= 0 && timeline[currentMoveIndex] ? timeline[currentMoveIndex].fen : initialFen;
-  const displayBoardPosition = sandboxFen ?? gameBoardPosition;
   const boardCardWidth = Math.max(boardSize + 48, 360);
 
   const whiteDisplayName = playerNames.white && playerNames.white !== "?" ? playerNames.white : "White";
@@ -287,12 +279,9 @@ export default function ReviewPage() {
     if (!currentMove?.uci || currentMove.uci.length < 4) return null;
     return { from: currentMove.uci.slice(0, 2), to: currentMove.uci.slice(2, 4) };
   }, [currentMove]);
-  const displayLastMove = sandboxActive ? sandboxLastMove : lastMoveSquares;
 
   const currentFen = currentMove?.fen ?? initialFen;
-  const currentEvaluationState = currentMove
-    ? moveEvaluations[currentMove.ply]
-    : moveEvaluations[0];
+  const currentEvaluationState = currentMove ? moveEvaluations[currentMove.ply] : moveEvaluations[0];
 
   const clockTimeline = useMemo(() => {
     const baseClock = playerClock ?? null;
@@ -559,77 +548,10 @@ export default function ReviewPage() {
     }
   }, [currentEval, currentMove]);
 
-  useEffect(() => {
-    // Stream evaluation for sandbox position
-    if (!sandboxActive || !sandboxFen || !engineEnabled) {
-      sandboxEvalSourceRef.current?.close();
-      sandboxEvalSourceRef.current = null;
-      setSandboxEvaluation(null);
-      return;
-    }
-    const url = `${API_BASE_URL}/api/review/evaluate/stream?fen=${encodeURIComponent(
-      sandboxFen
-    )}&depth=22&lines=${engineLinesCount}`;
-    sandboxEvalSourceRef.current?.close();
-    const source = new EventSource(url);
-    sandboxEvalSourceRef.current = source;
-    setSandboxEvaluation((prev) => {
-      const prevEval =
-        prev?.status === "success"
-          ? prev.evaluation
-          : prev?.status === "loading"
-            ? prev.previous
-            : null;
-      return { status: "loading", previous: prevEval || undefined };
-    });
-    source.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as { evaluation?: EngineEvaluation; done?: boolean; error?: string };
-        if (payload.error) {
-          setSandboxEvaluation({ status: "error", error: payload.error });
-          return;
-        }
-        if (payload.evaluation) {
-          setSandboxEvaluation({ status: "success", evaluation: payload.evaluation });
-        }
-        if (payload.done) {
-          source.close();
-          if (sandboxEvalSourceRef.current === source) {
-            sandboxEvalSourceRef.current = null;
-          }
-        }
-      } catch {
-        // ignore malformed message
-      }
-    };
-    source.onerror = () => {
-      setSandboxEvaluation((prev) => ({
-        status: "error",
-        error: "Engine stream error",
-        previous: prev?.status === "success" ? prev.evaluation : prev?.previous,
-      }));
-      source.close();
-      if (sandboxEvalSourceRef.current === source) {
-        sandboxEvalSourceRef.current = null;
-      }
-    };
-    return () => {
-      source.close();
-      if (sandboxEvalSourceRef.current === source) {
-        sandboxEvalSourceRef.current = null;
-      }
-    };
-  }, [API_BASE_URL, engineEnabled, engineLinesCount, sandboxActive, sandboxFen]);
+  const explorerFen = currentFen;
 
-  const explorerFen = sandboxActive ? sandboxFen ?? currentFen : currentFen;
-
-  const displayedEvaluation = sandboxActive
-    ? sandboxEvaluation?.status === "success"
-      ? { evaluation: (sandboxEvaluation as any).evaluation, fen: sandboxFen ?? currentFen }
-      : sandboxEvaluation?.status === "loading" && sandboxEvaluation.previous
-        ? { evaluation: sandboxEvaluation.previous, fen: sandboxFen ?? currentFen }
-        : lastEvaluationDisplay
-    : currentEvaluationState?.status === "success"
+  const displayedEvaluation =
+    currentEvaluationState?.status === "success"
       ? { evaluation: currentEvaluationState.evaluation, fen: currentFen }
       : currentEvaluationState?.status === "loading" && currentEvaluationState.previous
         ? { evaluation: currentEvaluationState.previous, fen: currentFen }
@@ -658,13 +580,8 @@ export default function ReviewPage() {
   const evaluationPercent = displayedEvaluation
     ? getEvalPercent(currentEvaluationScore, currentEvaluationMateWinner)
     : 0.5;
-  const engineStatus = sandboxActive ? sandboxEvaluation?.status : currentEvaluationState?.status;
-  const engineError =
-    sandboxActive && sandboxEvaluation?.status === "error"
-      ? sandboxEvaluation.error ?? null
-      : currentEvaluationState?.status === "error"
-        ? currentEvaluationState.error
-        : null;
+  const engineStatus = currentEvaluationState?.status;
+  const engineError = currentEvaluationState?.status === "error" ? currentEvaluationState.error : null;
 
   const handleLoadSample = () => {
     setPgnInput(SAMPLE_PGN.trim());
@@ -932,7 +849,6 @@ export default function ReviewPage() {
   const handleSelectMove = useCallback(
     (index: number, options?: { suppressEval?: boolean }) => {
       if (index < -1 || index > timeline.length - 1) return;
-      if (sandboxActive) return;
       setCurrentMoveIndex(index);
       if (index >= 0 && !options?.suppressEval && engineEnabled) {
         const move = timeline[index];
@@ -942,120 +858,20 @@ export default function ReviewPage() {
         }
       }
     },
-    [engineEnabled, moveEvaluations, requestEvaluation, sandboxActive, timeline]
-  );
-
-  const startSandboxFromCurrent = useCallback(() => {
-    const baseFen = currentFen;
-    try {
-      sandboxGameRef.current.load(baseFen);
-    } catch {
-      sandboxGameRef.current.reset();
-    }
-    setSandboxActive(true);
-    setSandboxFen(baseFen);
-    setSandboxLastMove(null);
-    setIsAutoPlaying(false);
-    setSandboxEvaluation(null);
-    setSandboxSelected(null);
-  }, [currentFen]);
-
-  const exitSandbox = useCallback(() => {
-    setSandboxActive(false);
-    setSandboxFen(null);
-    setSandboxLastMove(null);
-    setSandboxEvaluation(null);
-    sandboxEvalSourceRef.current?.close();
-    sandboxEvalSourceRef.current = null;
-    setSandboxSelected(null);
-  }, []);
-
-  const ensureSandboxBase = useCallback(() => {
-    try {
-      sandboxGameRef.current.load(currentFen);
-      setSandboxFen(currentFen);
-    } catch {
-      sandboxGameRef.current.reset();
-      setSandboxFen(sandboxGameRef.current.fen());
-    }
-    setSandboxActive(true);
-  }, [currentFen]);
-
-  const applySandboxMove = useCallback((from: string, to: string, promotion?: string) => {
-    ensureSandboxBase();
-    try {
-      const move = sandboxGameRef.current.move({ from, to, promotion: promotion ?? "q" });
-      if (!move) return false;
-      setSandboxActive(true);
-      setSandboxFen(sandboxGameRef.current.fen());
-      setSandboxLastMove({ from: move.from, to: move.to });
-      setSandboxSelected(null);
-      setIsAutoPlaying(false);
-      return true;
-    } catch {
-      return false;
-    }
-  }, [ensureSandboxBase]);
-
-  const handleBoardSquareClick = useCallback(
-    (square: string) => {
-      const game = sandboxGameRef.current;
-      // Always ensure sandbox is active and in sync with the displayed position.
-      ensureSandboxBase();
-      const currentSelected = sandboxSelected;
-      if (currentSelected) {
-        if (currentSelected === square) {
-          setSandboxSelected(null);
-          return;
-        }
-        const selectedPiece = game.get(currentSelected as Square);
-        const targetPiece = game.get(square as Square);
-        if (selectedPiece && targetPiece && selectedPiece.color === targetPiece.color) {
-          setSandboxSelected(square);
-          return;
-        }
-        const moved = applySandboxMove(currentSelected, square);
-        if (!moved) {
-          if (targetPiece && selectedPiece && selectedPiece.color === targetPiece.color) {
-            setSandboxSelected(square);
-          } else {
-            setSandboxSelected(null);
-          }
-        }
-        return;
-      }
-      const piece = game.get(square as Square);
-      if (piece && piece.color === game.turn()) {
-        setSandboxSelected(square);
-      } else {
-        setSandboxSelected(null);
-      }
-    },
-    [applySandboxMove, ensureSandboxBase, sandboxSelected]
+    [engineEnabled, moveEvaluations, requestEvaluation, timeline]
   );
 
   const handleExplorerMove = useCallback(
     (uci: string) => {
       if (!uci) return;
-      const from = uci.slice(0, 2);
-      const to = uci.slice(2, 4);
-      if (sandboxActive) {
-        applySandboxMove(from, to);
-        return;
-      }
-      // Default behavior: jump to move in timeline if present
       if (!timeline.length) return;
       const normalized = uci.slice(0, 4);
       const idx = timeline.findIndex((mv) => (mv.uci ?? "").startsWith(normalized));
       if (idx >= 0) {
         handleSelectMove(idx);
-      } else {
-        // Enter sandbox from current position if move not in main line
-        startSandboxFromCurrent();
-        applySandboxMove(from, to);
       }
     },
-    [applySandboxMove, handleSelectMove, sandboxActive, startSandboxFromCurrent, timeline.length]
+    [handleSelectMove, timeline.length]
   );
 
   const ensureMoveEvaluation = useCallback(
@@ -1079,13 +895,13 @@ export default function ReviewPage() {
     } else if (timeline.length > 0) {
       ensureMoveEvaluation(startingSnapshot);
     }
-  }, [currentMoveIndex, ensureMoveEvaluation, engineEnabled, isAutoPlaying, sandboxActive, startingSnapshot, timeline]);
+  }, [currentMoveIndex, ensureMoveEvaluation, engineEnabled, isAutoPlaying, startingSnapshot, timeline]);
 
   useEffect(() => {
-    if (!currentMove || !engineEnabled || isAutoPlaying || sandboxActive) return;
+    if (!currentMove || !engineEnabled || isAutoPlaying) return;
     setMoveEvaluations((prev) => ({ ...prev, [currentMove.ply]: { status: "idle" } }));
     requestEvaluation(currentMove);
-  }, [currentMove, engineEnabled, engineLinesCount, isAutoPlaying, sandboxActive, requestEvaluation]);
+  }, [currentMove, engineEnabled, engineLinesCount, isAutoPlaying, requestEvaluation]);
 
   useEffect(() => {
     if (!isAutoPlaying || !timeline.length) return;
@@ -1163,14 +979,6 @@ export default function ReviewPage() {
       } else if (event.key.toLowerCase() === "a") {
         event.preventDefault();
         setShowBestMoveArrow((prev) => !prev);
-      } else if (event.key.toLowerCase() === "c") {
-        event.preventDefault();
-        setSandboxActive((prev) => !prev);
-        if (!sandboxActive) {
-          ensureSandboxBase();
-        } else {
-          exitSandbox();
-        }
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         handleSelectMove(Math.max(currentMoveIndex - 1, -1));
@@ -1346,7 +1154,6 @@ export default function ReviewPage() {
                         <div className="flex justify-between gap-3"><span>Prev / Next</span><span className="font-semibold">← / →</span></div>
                         <div className="flex justify-between gap-3"><span>First / Last</span><span className="font-semibold">↑ / ↓</span></div>
                         <div className="flex justify-between gap-3"><span>Toggle Arrow</span><span className="font-semibold">A</span></div>
-                        <div className="flex justify-between gap-3"><span>Toggle Sandbox</span><span className="font-semibold">C</span></div>
                         <div className="flex justify-between gap-3"><span>Flip Board</span><span className="font-semibold">F</span></div>
                         <div className="flex justify-between gap-3"><span>Settings</span><span className="font-semibold">S</span></div>
                       </div>
@@ -1355,12 +1162,12 @@ export default function ReviewPage() {
                 </div>
                 <div className="flex flex-col gap-4 items-center" style={{ width: boardCardWidth }}>
                   <BoardAnalysisCard
-                    boardPosition={displayBoardPosition}
+                    boardPosition={boardPosition}
                     boardWidth={boardSize}
                     boardOrientation={boardOrientation}
                     boardColors={BOARD_THEMES[boardTheme]}
                     customPieces={customPieces}
-                    lastMove={displayLastMove}
+                    lastMove={lastMoveSquares}
                     lastMoveColor={lastMoveColor}
                     evaluationPercent={evaluationPercent}
                     currentEvaluationScore={currentEvaluationScore}
@@ -1380,12 +1187,6 @@ export default function ReviewPage() {
                     onFlipBoard={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
                     onToggleBestMoveArrow={() => setShowBestMoveArrow((prev) => !prev)}
                     onOpenThemeModal={() => setIsThemeModalOpen(true)}
-                    arePiecesDraggable={sandboxActive}
-                    onPieceDrop={(from, to) => applySandboxMove(from, to)}
-                    sandboxActive={sandboxActive}
-                    onEnterSandbox={startSandboxFromCurrent}
-                    onExitSandbox={exitSandbox}
-                    controlsDisabled={sandboxActive}
                   />
                 </div>
                 <div className="flex flex-col gap-6">
@@ -1429,12 +1230,12 @@ export default function ReviewPage() {
 
               <div className="xl:hidden flex flex-col gap-4 items-center w-full">
                 <BoardAnalysisCard
-                  boardPosition={displayBoardPosition}
+                  boardPosition={boardPosition}
                   boardWidth={boardSize}
                   boardOrientation={boardOrientation}
                   boardColors={BOARD_THEMES[boardTheme]}
                   customPieces={customPieces}
-                  lastMove={displayLastMove}
+                  lastMove={lastMoveSquares}
                   lastMoveColor={lastMoveColor}
                   evaluationPercent={evaluationPercent}
                   currentEvaluationScore={currentEvaluationScore}
@@ -1452,16 +1253,8 @@ export default function ReviewPage() {
                   onSelectMove={handleSelectMove}
                   onToggleAutoPlay={handleToggleAutoPlay}
                   onFlipBoard={() => setBoardOrientation((prev) => (prev === "white" ? "black" : "white"))}
-                onToggleBestMoveArrow={() => setShowBestMoveArrow((prev) => !prev)}
-                onOpenThemeModal={() => setIsThemeModalOpen(true)}
-                arePiecesDraggable
-                onPieceDrop={(from, to) => applySandboxMove(from, to)}
-                onSquareClick={(square) => handleBoardSquareClick(square)}
-                selectedSquare={sandboxActive ? sandboxSelected : null}
-                sandboxActive={sandboxActive}
-                onEnterSandbox={startSandboxFromCurrent}
-                onExitSandbox={exitSandbox}
-                  controlsDisabled={sandboxActive}
+                  onToggleBestMoveArrow={() => setShowBestMoveArrow((prev) => !prev)}
+                  onOpenThemeModal={() => setIsThemeModalOpen(true)}
                 />
               </div>
 

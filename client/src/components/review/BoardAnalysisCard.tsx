@@ -1,5 +1,5 @@
 import { Chessboard } from "react-chessboard";
-import { ArrowRight, ArrowUpDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Pause, Play, RefreshCw, Settings } from "lucide-react";
+import { ArrowRight, ArrowUpDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Pause, Play, Settings } from "lucide-react";
 import type { ReactElement } from "react";
 import type { Arrow, EngineScore } from "../../types/review";
 import BoardControlButton from "./BoardControlButton";
@@ -15,9 +15,6 @@ interface BoardAnalysisCardProps {
   lastMove?: { from?: string; to?: string } | null;
   lastMoveColor?: string | null;
   customPieces?: PieceRenderMap;
-  arePiecesDraggable?: boolean;
-  onPieceDrop?: (sourceSquare: string, targetSquare: string, piece: string) => boolean;
-  onSquareClick?: (square: string) => void;
   evaluationPercent: number;
   currentEvaluationScore: EngineScore | null;
   whiteLabel?: string;
@@ -36,11 +33,6 @@ interface BoardAnalysisCardProps {
   onFlipBoard: () => void;
   onToggleBestMoveArrow: () => void;
   onOpenThemeModal: () => void;
-  sandboxActive?: boolean;
-  onEnterSandbox?: () => void;
-  onExitSandbox?: () => void;
-  controlsDisabled?: boolean;
-  selectedSquare?: string | null;
 }
 
 export default function BoardAnalysisCard({
@@ -51,9 +43,6 @@ export default function BoardAnalysisCard({
   lastMove,
   lastMoveColor,
   customPieces,
-  arePiecesDraggable = false,
-  onPieceDrop,
-  onSquareClick,
   evaluationPercent,
   currentEvaluationScore,
   whiteLabel,
@@ -72,31 +61,18 @@ export default function BoardAnalysisCard({
   onFlipBoard,
   onToggleBestMoveArrow,
   onOpenThemeModal,
-  sandboxActive = false,
-  onEnterSandbox,
-  onExitSandbox,
-  controlsDisabled = false,
-  selectedSquare = null,
 }: BoardAnalysisCardProps) {
   const hasMoves = timelineLength > 0;
   const cardWidth = boardWidth + 48;
-  const highlightColor = lastMoveColor || "#fcd34d"; // default yellow fallback
+  const highlightColor = lastMoveColor || "#fcd34d"; // default yellow
   const customSquareStyles =
-    lastMove?.from || lastMove?.to || selectedSquare
+    lastMove?.from || lastMove?.to
       ? {
           ...(lastMove?.from
             ? { [lastMove.from]: { backgroundColor: highlightColor, boxShadow: "inset 0 0 0 2px rgba(0,0,0,0.05)" } }
             : {}),
           ...(lastMove?.to
             ? { [lastMove.to]: { backgroundColor: highlightColor, boxShadow: "inset 0 0 0 2px rgba(0,0,0,0.05)" } }
-            : {}),
-          ...(selectedSquare
-            ? {
-                [selectedSquare]: {
-                  boxShadow: "inset 0 0 0 3px rgba(14,165,233,0.9)",
-                  borderRadius: "0",
-                },
-              }
             : {}),
         }
       : undefined;
@@ -120,17 +96,13 @@ export default function BoardAnalysisCard({
           position={boardPosition}
           boardWidth={boardWidth}
           boardOrientation={boardOrientation}
-          arePiecesDraggable={arePiecesDraggable}
+          arePiecesDraggable={false}
           customDarkSquareStyle={{ backgroundColor: boardColors.dark }}
           customLightSquareStyle={{ backgroundColor: boardColors.light }}
           customBoardStyle={{ borderRadius: 0 }}
           customArrows={bestMoveArrows}
           customSquareStyles={customSquareStyles}
           customPieces={customPieces}
-          onPieceDrop={onPieceDrop}
-          onSquareClick={onSquareClick}
-          snapToCursor
-          snapToCursorOffset={{ x: -boardWidth / 16, y: -boardWidth / 16 }}
         />
       </div>
       <div className="flex flex-wrap gap-4 items-center border-t border-gray-100 pt-4">
@@ -140,12 +112,12 @@ export default function BoardAnalysisCard({
           </BoardControlButton>
         </div>
         <div className="flex flex-1 flex-wrap md:flex-nowrap gap-2 justify-center">
-          <BoardControlButton onClick={() => onSelectMove(0)} disabled={!hasMoves || controlsDisabled} label="First move">
+          <BoardControlButton onClick={() => onSelectMove(0)} disabled={!hasMoves} label="First move">
             <ChevronFirst className="h-4 w-4" />
           </BoardControlButton>
           <BoardControlButton
             onClick={() => onSelectMove(Math.max(currentMoveIndex - 1, -1))}
-            disabled={!hasMoves || currentMoveIndex <= 0 || controlsDisabled}
+            disabled={!hasMoves || currentMoveIndex <= 0}
             label="Previous move"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -153,19 +125,19 @@ export default function BoardAnalysisCard({
           <BoardControlButton
             onClick={onToggleAutoPlay}
             active={isAutoPlaying}
-            disabled={!hasMoves || controlsDisabled}
+            disabled={!hasMoves}
             label={isAutoPlaying ? "Pause" : "Play"}
           >
             {isAutoPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </BoardControlButton>
           <BoardControlButton
             onClick={() => onSelectMove(Math.min(currentMoveIndex + 1, timelineLength - 1))}
-            disabled={!hasMoves || atEnd || controlsDisabled}
+            disabled={!hasMoves || atEnd}
             label="Next move"
           >
             <ChevronRight className="h-4 w-4" />
           </BoardControlButton>
-          <BoardControlButton onClick={() => onSelectMove(timelineLength - 1)} disabled={!hasMoves || controlsDisabled} label="Last move">
+          <BoardControlButton onClick={() => onSelectMove(timelineLength - 1)} disabled={!hasMoves} label="Last move">
             <ChevronLast className="h-4 w-4" />
           </BoardControlButton>
         </div>
@@ -178,17 +150,6 @@ export default function BoardAnalysisCard({
           >
             <ArrowRight className="h-4 w-4" />
           </BoardControlButton>
-          {sandboxActive ? (
-            <BoardControlButton onClick={onExitSandbox} label="Exit sandbox" active>
-              <RefreshCw className="h-4 w-4" />
-            </BoardControlButton>
-          ) : (
-            onEnterSandbox && (
-              <BoardControlButton onClick={onEnterSandbox} label="Sandbox">
-                <RefreshCw className="h-4 w-4" />
-              </BoardControlButton>
-            )
-          )}
           <BoardControlButton onClick={onOpenThemeModal} label="Settings">
             <Settings className="h-4 w-4" />
           </BoardControlButton>
