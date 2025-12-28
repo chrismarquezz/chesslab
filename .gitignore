@@ -49,7 +49,3 @@ npm-debug.log*
 # Misc
 # ─────────────────────────────
 *.local
-
-# Docker artifacts
-server/Dockerfile
-server/.dockerignore
