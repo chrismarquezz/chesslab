@@ -23,4 +23,5 @@ RUN npx tsc -p tsconfig.json
 # Run with node (ts compiled output).
 EXPOSE 5000
 ENV PORT=5000
+ENV STOCKFISH_PATH=/usr/games/stockfish
 CMD ["node", "dist/index.js"]
